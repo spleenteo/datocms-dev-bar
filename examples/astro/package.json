@@ -1,0 +1,13 @@
+{
+  "name": "datocms-dev-bar-astro-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.6",
+    "@spleenteo/datocms-dev-bar": "file:../..",
+    "astro": "^7.3.5"
+  }
+}
