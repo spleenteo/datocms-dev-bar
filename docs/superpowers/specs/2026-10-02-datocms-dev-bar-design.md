@@ -101,7 +101,7 @@ Oppure da npm: `import "datocms-dev-bar"` registra l'elemento.
 | `allow-hosts` | nessuno | host in più, separati da spazio, dove il widget si mostra |
 | `shortcuts` | `on` | `off` per disattivare le scorciatoie da tastiera |
 
-Colore e posizione verticale si regolano con proprietà CSS sull'elemento: `--dev-bar-accent` (default `#FF7751`, l'arancione DatoCMS), `--dev-bar-bottom` (default `12px`).
+Colore e posizione verticale si regolano con proprietà CSS sull'elemento: `--dev-bar-accent` (default `#FF593D`), `--dev-bar-bottom` (default `12px`).
 
 ### Forma
 
@@ -204,9 +204,19 @@ gestart-astro: la barra di `src/components/DraftModeBanner` in sviluppo lascia i
 
 ## 6. Verifica
 
+### Dove si vede la barra mentre la si sviluppa
+
+Tre livelli, dal più rapido al più realistico:
+
+1. **Playground nel repo**: `npm run dev` avvia un piccolo server Node su `http://localhost:5173` che ricompila il widget a ogni salvataggio (esbuild in watch) e serve una pagina di prova. La pagina è generata lato server con l'helper vero, e mostra in chiaro cosa ha deciso: "server: draft, visual editing on". Il contenuto è finto, con testi che portano metadati Content Link simulati, così si vedono anche gli overlay accendersi e spegnersi. Non serve un progetto DatoCMS.
+2. **Playground con dati veri**: se in `.env` c'è un token CDA, la stessa pagina interroga un progetto DatoCMS reale invece dei dati finti.
+3. **In un sito vero**: il pacchetto si collega a gestart-astro con una dipendenza locale (`"datocms-dev-bar": "file:../datocms-dev-bar"`) e si vede su `localhost:4321`, al posto della barra attuale.
+
+### Test
+
 - **Helper**: test unitari con Vitest. Sono funzioni pure, quindi i test costano poco: ordine di lettura, default, `isDev` falso, valori sconosciuti, i tre formati di input.
 - **Web component**: test con Playwright su una pagina HTML statica servita in locale: apertura e chiusura, scrittura dei cookie, parametri URL tolti dall'URL, scorciatoie, controllo dell'host.
-- **Esempi**: una cartella `examples/` con HTML puro e Astro, usati anche come prova manuale prima di ogni rilascio.
+- **Esempi**: una cartella `examples/` con HTML puro e Astro, usati anche come prova manuale prima di ogni rilascio. Il playground del punto 1 è l'esempio HTML.
 
 ## 7. Direzioni future (non in v1)
 
@@ -218,6 +228,7 @@ La v1 non deve chiudere queste strade.
 
 ## Domande aperte
 
-1. Colore della linguetta: `#FF7751` (arancione DatoCMS) come default, o `#F28C28` come in gestart-astro?
-2. Nome del pacchetto: `datocms-dev-bar` è libero su npm. Va pubblicato con il tuo account o con uno scope (`@spleenteo/…`)?
-3. Le scorciatoie `Alt+Shift+D/V/B` possono scontrarsi con quelle di qualche sistema o IDE nel browser: le teniamo attive di default?
+Decise: colore `#FF593D`; pacchetto npm.
+
+1. Nome del pacchetto: `datocms-dev-bar` senza scope, o con uno scope (`@spleenteo/…` o di un'organizzazione)?
+2. Le scorciatoie `Alt+Shift+D/V/B` possono scontrarsi con quelle di qualche sistema o IDE nel browser: le teniamo attive di default?
