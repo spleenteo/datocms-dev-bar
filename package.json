@@ -1,0 +1,54 @@
+{
+  "name": "@spleenteo/datocms-dev-bar",
+  "version": "0.1.0",
+  "description": "A local-only dev bar for DatoCMS sites: switch draft/published content and visual editing in one click, in any framework.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Matteo Papadopoulos",
+  "keywords": [
+    "datocms",
+    "draft-mode",
+    "preview",
+    "visual-editing",
+    "web-component"
+  ],
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/types/server.d.ts",
+      "default": "./dist/server.js"
+    }
+  },
+  "jsdelivr": "dist/index.js",
+  "unpkg": "dist/index.js",
+  "sideEffects": [
+    "./dist/index.js",
+    "./dist/datocms-dev-bar.iife.js"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node build.mjs && tsc -p tsconfig.build.json",
+    "dev": "node playground/server.mjs",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "size": "node scripts/size.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}
