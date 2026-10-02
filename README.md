@@ -121,6 +121,27 @@ export function DevBar() {
 
 Layouts do not receive `searchParams`: there only the cookie counts.
 
+TypeScript does not know the custom tag in JSX. Declare it once, for example in `app/dev-bar.d.ts`:
+
+```ts
+import type { DetailedHTMLProps, HTMLAttributes } from "react";
+
+declare module "react" {
+  namespace JSX {
+    interface IntrinsicElements {
+      "datocms-dev-bar": DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & {
+        "project-url"?: string;
+        environment?: string;
+        position?: "bottom-left" | "bottom-right";
+        reload?: "true" | "false";
+        "allow-hosts"?: string;
+        shortcuts?: "on" | "off";
+      };
+    }
+  }
+}
+```
+
 ### Nuxt
 
 ```ts
