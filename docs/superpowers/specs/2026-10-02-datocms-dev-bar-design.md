@@ -1,7 +1,8 @@
 # datocms-dev-bar: design
 
 Data: 2026-10-02
-Stato: bozza da rivedere. La sezione 1 (contratto) è approvata in conversazione; le sezioni 2-7 aspettano la revisione.
+Stato: approvata il 2026-10-02.
+Pacchetto: `@spleenteo/datocms-dev-bar`.
 
 ## Obiettivo
 
@@ -36,7 +37,7 @@ Tre pezzi, ognuno usabile da solo:
 |---|---|---|
 | Contratto | documentazione | nomi e valori di cookie e parametri URL |
 | `<datocms-dev-bar>` | browser | l'interfaccia: scrive i cookie e ricarica |
-| `datocms-dev-bar/server` | server del sito | legge cookie e parametri, restituisce le opzioni per la CDA |
+| `@spleenteo/datocms-dev-bar/server` | server del sito | legge cookie e parametri, restituisce le opzioni per la CDA |
 
 Il widget non chiama endpoint e non conosce i token. Il sito non conosce il widget: legge solo due cookie. Chi non vuole il nostro helper implementa il contratto a mano.
 
@@ -84,11 +85,11 @@ Con `X-Include-Drafts` basta un solo token, purché abbia accesso alle bozze.
 ### Uso
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/datocms-dev-bar"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@spleenteo/datocms-dev-bar"></script>
 <datocms-dev-bar project-url="https://mio-progetto.admin.datocms.com"></datocms-dev-bar>
 ```
 
-Oppure da npm: `import "datocms-dev-bar"` registra l'elemento.
+Oppure da npm: `import "@spleenteo/datocms-dev-bar"` registra l'elemento.
 
 ### Attributi
 
@@ -143,12 +144,12 @@ Prima di ricaricare, l'elemento emette `datocms-dev-bar:change` con `detail: { m
 
 Obiettivo: meno di 6 KB compressi.
 
-## 3. L'helper lato server `datocms-dev-bar/server`
+## 3. L'helper lato server `@spleenteo/datocms-dev-bar/server`
 
 Funzioni pure, senza dipendenze, che funzionano in Node, Workers, Deno e Bun.
 
 ```ts
-import { readDevPreview } from "datocms-dev-bar/server";
+import { readDevPreview } from "@spleenteo/datocms-dev-bar/server";
 
 const preview = readDevPreview(request, { isDev: import.meta.env.DEV });
 // { mode: "draft" | "published", visualEditing: boolean }
@@ -179,9 +180,9 @@ Nota comune: in draft la risposta non va messa in cache. La documentazione lo di
 
 ## 4. Distribuzione
 
-- Un solo pacchetto npm, `datocms-dev-bar`, con due entry point:
-  - `datocms-dev-bar` registra l'elemento (effetto collaterale, `customElements.define` protetto contro la doppia registrazione);
-  - `datocms-dev-bar/server` esporta l'helper.
+- Un solo pacchetto npm, `@spleenteo/datocms-dev-bar`, con due entry point:
+  - `@spleenteo/datocms-dev-bar` registra l'elemento (effetto collaterale, `customElements.define` protetto contro la doppia registrazione);
+  - `@spleenteo/datocms-dev-bar/server` esporta l'helper.
 - Un file IIFE per il CDN (jsDelivr, unpkg), per l'uso con un `<script>` in HTML puro.
 - Sorgenti in TypeScript, build con esbuild, tipi `.d.ts` inclusi. Nessuna dipendenza di runtime.
 - Le ricette consigliano di caricare il widget solo in sviluppo (import condizionale o dinamico), così non finisce nel bundle di produzione. Il controllo sull'host resta come seconda cintura.
@@ -210,7 +211,7 @@ Tre livelli, dal più rapido al più realistico:
 
 1. **Playground nel repo**: `npm run dev` avvia un piccolo server Node su `http://localhost:5173` che ricompila il widget a ogni salvataggio (esbuild in watch) e serve una pagina di prova. La pagina è generata lato server con l'helper vero, e mostra in chiaro cosa ha deciso: "server: draft, visual editing on". Il contenuto è finto, con testi che portano metadati Content Link simulati, così si vedono anche gli overlay accendersi e spegnersi. Non serve un progetto DatoCMS.
 2. **Playground con dati veri**: se in `.env` c'è un token CDA, la stessa pagina interroga un progetto DatoCMS reale invece dei dati finti.
-3. **In un sito vero**: il pacchetto si collega a gestart-astro con una dipendenza locale (`"datocms-dev-bar": "file:../datocms-dev-bar"`) e si vede su `localhost:4321`, al posto della barra attuale.
+3. **In un sito vero**: il pacchetto si collega a gestart-astro con una dipendenza locale (`"@spleenteo/datocms-dev-bar": "file:../datocms-dev-bar"`) e si vede su `localhost:4321`, al posto della barra attuale.
 
 ### Test
 
@@ -226,9 +227,8 @@ La v1 non deve chiudere queste strade.
 - **Estensione per il browser**: lo stesso web component inserito su qualsiasi localhost, per chi ha l'helper nel progetto e non vuole aggiungere lo script. Per i raggi X l'estensione ha un vantaggio: legge i metadati senza passare dal server.
 - **Produzione per gli editor**: cookie firmato e gettone di Web Previews, come in gestart-astro. Richiede codice lato server per ogni framework e va progettata a parte.
 
-## Domande aperte
+## Decisioni
 
-Decise: colore `#FF593D`; pacchetto npm.
-
-1. Nome del pacchetto: `datocms-dev-bar` senza scope, o con uno scope (`@spleenteo/…` o di un'organizzazione)?
-2. Le scorciatoie `Alt+Shift+D/V/B` possono scontrarsi con quelle di qualche sistema o IDE nel browser: le teniamo attive di default?
+- Colore della linguetta: `#FF593D`.
+- Pacchetto npm con scope personale: `@spleenteo/datocms-dev-bar`.
+- Scorciatoie `Alt+Shift+D/V/B` attive di default, disattivabili con `shortcuts="off"`.
