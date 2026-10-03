@@ -5,6 +5,14 @@
   "type": "module",
   "license": "MIT",
   "author": "Matteo Papadopoulos",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spleenteo/datocms-dev-bar.git"
+  },
+  "homepage": "https://github.com/spleenteo/datocms-dev-bar#readme",
+  "bugs": {
+    "url": "https://github.com/spleenteo/datocms-dev-bar/issues"
+  },
   "keywords": [
     "datocms",
     "draft-mode",
