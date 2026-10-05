@@ -68,6 +68,10 @@ export const TEMPLATE = `
       <button type="button" data-visual="on">on</button>
       <button type="button" data-visual="off">off</button>
     </span>
+    <span class="outlines" hidden>
+      <span class="outlines-dot" aria-hidden="true"></span><span class="outlines-label"></span>
+      <span class="info"><button type="button" class="i" aria-label="About outlines" aria-describedby="tip-outlines">i</button><span class="tip" role="tooltip" id="tip-outlines">Outlines mark what you can edit in DatoCMS. Hold Alt (Option on a Mac) to show them, or to hide them if your site keeps them on: the bar shows their state once it changes. Turning Visual editing off also removes the invisible stega characters Content Link adds to texts, which can get in the way while you work on the design (text width, line breaks, copy and paste).</span></span>
+    </span>
     <span class="sep" aria-hidden="true"></span>
     <button type="button" class="advanced" aria-expanded="false" aria-controls="advanced">Advanced</button>
     <span class="warning" role="status" hidden>cookies blocked</span>
@@ -110,6 +114,7 @@ export const TEMPLATE = `
         <div><dt><kbd>Alt</kbd><kbd>Shift</kbd><kbd>D</kbd></dt><dd>Switch between draft and published</dd></div>
         <div><dt><kbd>Alt</kbd><kbd>Shift</kbd><kbd>V</kbd></dt><dd>Turn visual editing on and off (drafts only)</dd></div>
         <div><dt><kbd>Alt</kbd><kbd>Shift</kbd><kbd>B</kbd></dt><dd>Open and close the bar</dd></div>
+        <div><dt><kbd>Alt</kbd> (hold)</dt><dd>Show the edit outlines, or hide them if the site keeps them on (Content Link, drafts with visual editing on)</dd></div>
       </dl>
       <p class="help-note">Shortcuts are ignored while you type in a field.</p>
       <h3>How it works</h3>

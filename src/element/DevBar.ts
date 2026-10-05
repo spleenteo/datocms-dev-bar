@@ -34,6 +34,9 @@ const WEIGHT_HELP = [
 const OPEN_KEY = "datocms-dev-bar:open";
 const ADVANCED_KEY = "datocms-dev-bar:advanced";
 const TAB_KEY = "datocms-dev-bar:tab";
+const OUTLINES_KEY = "datocms-dev-bar:outlines";
+/** Emitted by @datocms/content-link on the document when its click-to-edit outlines turn on or off. */
+const OUTLINES_EVENT = "datocms:click-to-edit:toggle";
 const TAB_KEYS = ["general", "records", "queries", "help"];
 
 // On the server there is no HTMLElement: importing this module must still work.
@@ -53,11 +56,24 @@ export class DevBar extends Base {
   private tipCount = 0;
   private recordFilter = "";
   private tab = "general";
+  /** Whether Content Link outlines are on; null until the bar has seen them change. */
+  private outlines: boolean | null = null;
   /** Queries opened in the Queries tab, by position: kept while the panel redraws. */
   private openQueries = new Set<number>();
   private cookiesOk = true;
   private root: ShadowRoot | null = null;
   private readonly onKeydown = (event: KeyboardEvent) => this.handleKeydown(event);
+  private readonly onOutlines = (event: Event) => {
+    const detail = (event as CustomEvent<unknown>).detail;
+    if (typeof detail !== "boolean") return;
+    this.outlines = detail;
+    try {
+      sessionStorage.setItem(OUTLINES_KEY, detail ? "1" : "0");
+    } catch {
+      // Without sessionStorage the state is known only after it changes on each page.
+    }
+    if (this.root) this.update();
+  };
 
   connectedCallback() {
     // One bar per page: a second element stays empty.
@@ -79,6 +95,14 @@ export class DevBar extends Base {
     this.open = readFlag(OPEN_KEY);
     this.advanced = readFlag(ADVANCED_KEY);
     this.tab = readTab();
+    // The site's controller may have set its state before the bar loaded: start from the last one seen.
+    try {
+      const seen = sessionStorage.getItem(OUTLINES_KEY);
+      this.outlines = seen === null ? null : seen === "1";
+    } catch {
+      this.outlines = null;
+    }
+    document.addEventListener(OUTLINES_EVENT, this.onOutlines);
     ({ queries: this.reports, project: this.project } = readData());
     this.render();
     void this.loadRemoteData();
@@ -87,6 +111,7 @@ export class DevBar extends Base {
 
   disconnectedCallback() {
     window.removeEventListener("keydown", this.onKeydown);
+    document.removeEventListener(OUTLINES_EVENT, this.onOutlines);
     if (activeInstance === this) activeInstance = null;
   }
 
@@ -185,6 +210,12 @@ export class DevBar extends Base {
     link.hidden = href === null;
     if (href !== null) link.href = href;
     root.querySelector<HTMLElement>(".warning")!.hidden = this.cookiesOk;
+    // Outlines exist only on drafts with Content Link: the state is read, not set (the site owns it).
+    const outlines = root.querySelector<HTMLElement>(".outlines")!;
+    outlines.hidden = published || !this.state.visualEditing;
+    outlines.dataset.state = this.outlines === null ? "unknown" : this.outlines ? "on" : "off";
+    root.querySelector<HTMLElement>(".outlines-label")!.textContent =
+      this.outlines === null ? "Outlines: hold Alt" : this.outlines ? "Outlines on" : "Outlines off";
   }
 
   private setOpen(open: boolean) {

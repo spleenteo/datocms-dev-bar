@@ -201,3 +201,28 @@ test("the panel has four tabs, remembers the open one and moves with the arrow k
   await expect(control(page, "[data-tab=general]")).toHaveAttribute("aria-selected", "true");
   await expect(control(page, "[data-tab=records] .tab-count")).toHaveText("4");
 });
+
+test("with data-url the bar loads its data from the site after the page", async ({ page }) => {
+  await page.goto("/remote");
+  await tab(page).click();
+  await control(page, ".advanced").click();
+  await expect(control(page, "[data-row=environment]")).toHaveText("main");
+  await expect(control(page, ".query-lines li")).toHaveCount(1);
+  await expect(control(page, "[data-tab=records] .tab-count")).toHaveText("4");
+});
+
+test("the bar shows the Content Link outlines state it hears about, and remembers it", async ({ page }) => {
+  await page.goto("/");
+  await tab(page).click();
+  const outlines = control(page, ".outlines");
+  await expect(outlines).toBeVisible();
+  await expect(control(page, ".outlines-label")).toHaveText("Outlines: hold Alt");
+  await page.evaluate(() => document.dispatchEvent(new CustomEvent("datocms:click-to-edit:toggle", { detail: true })));
+  await expect(control(page, ".outlines-label")).toHaveText("Outlines on");
+  await page.reload();
+  await expect(control(page, ".outlines-label")).toHaveText("Outlines on");
+  await page.evaluate(() => document.dispatchEvent(new CustomEvent("datocms:click-to-edit:toggle", { detail: false })));
+  await expect(control(page, ".outlines-label")).toHaveText("Outlines off");
+  await control(page, "button[data-visual=off]").click();
+  await expect(outlines).toBeHidden();
+});

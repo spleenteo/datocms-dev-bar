@@ -186,6 +186,10 @@ kbd { display: inline-block; min-width: 14px; margin-right: 3px; padding: 1px 5p
 .info:hover .tip, .info:focus-within .tip { visibility: visible; opacity: 1; }
 .tip-end { left: auto; right: -8px; }
 
+.outlines { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: rgb(255 255 255 / .75); }
+.outlines-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / .6); }
+.outlines[data-state="on"] .outlines-dot { background: var(--accent); box-shadow: none; }
+.outlines .info { margin-left: 0; }
 .sep { width: 1px; height: 20px; background: rgb(255 255 255 / .2); }
 .warning { color: #FFB4A8; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
