@@ -53,6 +53,8 @@ export class DevBar extends Base {
   private tipCount = 0;
   private recordFilter = "";
   private tab = "general";
+  /** Queries opened in the Queries tab, by position: kept while the panel redraws. */
+  private openQueries = new Set<number>();
   private cookiesOk = true;
   private root: ShadowRoot | null = null;
   private readonly onKeydown = (event: KeyboardEvent) => this.handleKeydown(event);
@@ -228,7 +230,7 @@ export class DevBar extends Base {
     lines.replaceChildren(...this.reports.map((report, index) => this.queryLineItem(report, index)));
     const list = root.querySelector<HTMLElement>(".queries")!;
     list.hidden = this.reports.length === 0;
-    list.replaceChildren(...this.reports.map((report) => this.queryItem(report)));
+    list.replaceChildren(...this.reports.map((report, index) => this.queryItem(report, index)));
   }
 
   /** One query: a line with its weight and flags, and under it the text and variables to read and copy. */
@@ -256,6 +258,7 @@ export class DevBar extends Base {
     line.title = "Show the query";
     const open = (event: Event) => {
       if ((event.target as HTMLElement).closest(".info")) return;
+      this.openQueries.add(index);
       this.setTab("queries");
       const target = this.root!.querySelectorAll<HTMLElement>(".queries > li")[index];
       target?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -272,16 +275,28 @@ export class DevBar extends Base {
     return item;
   }
 
-  /** In Queries: the line, why it is flagged, and the text and variables to read and copy. */
-  private queryItem(report: QueryReport): HTMLElement {
+  /**
+   * In Queries: the line, why it is flagged, and the text and variables to read and copy.
+   * A single query is open; with more, each opens on click.
+   */
+  private queryItem(report: QueryReport, index: number): HTMLElement {
     const item = el("li");
-    item.append(this.queryLine(report, "q-line"));
+    const details = document.createElement("details");
+    details.open = this.reports.length === 1 || this.openQueries.has(index);
+    details.addEventListener("toggle", () => {
+      if (details.open) this.openQueries.add(index);
+      else this.openQueries.delete(index);
+    });
+    const summary = document.createElement("summary");
+    summary.append(...this.queryLine(report, "q-line").childNodes);
+    summary.className = "q-line";
     const body = el("div", "q-body");
     for (const flag of assessReport(report)) body.append(el("p", "q-why", flag.why));
     if (report.query) body.append(this.codeBlock("Query", report.query));
     if (report.variables) body.append(this.codeBlock("Variables", report.variables));
     if (!report.query) body.append(el("p", "q-why", "The site did not hand over the query text."));
-    item.append(body);
+    details.append(summary, body);
+    item.append(details);
     return item;
   }
 

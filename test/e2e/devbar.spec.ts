@@ -121,6 +121,7 @@ test("General shows the environment, how the queries performed, and a line per q
   await expect(control(page, "[data-tab=general]")).toHaveAttribute("aria-selected", "true");
   await lines.nth(1).locator(".q-name").click();
   await expect(control(page, "[data-tab=queries]")).toHaveAttribute("aria-selected", "true");
+  await expect(control(page, ".queries > li").nth(1).locator("details")).toHaveAttribute("open", "");
 });
 
 test("Queries shows each query with its text and variables", async ({ page }) => {
@@ -132,7 +133,11 @@ test("Queries shows each query with its text and variables", async ({ page }) =>
   const items = control(page, ".queries > li");
   await expect(items).toHaveCount(2);
   await expect(items.nth(0).locator(".flag")).toHaveCount(0);
+  // With more than one query they start closed; a click opens one
+  await expect(items.nth(1).locator("pre").first()).toBeHidden();
+  await items.nth(1).locator(".q-name").click();
   await expect(items.nth(1).locator("pre").first()).toBeVisible();
+  await expect(items.nth(0).locator("pre").first()).toBeHidden();
   await expect(items.nth(1).locator("pre").first()).toContainText("query MenuQuery");
   await expect(items.nth(1).locator("pre").nth(1)).toContainText('"locale": "it"');
 });

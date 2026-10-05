@@ -103,6 +103,11 @@ kbd { display: inline-block; min-width: 14px; margin-right: 3px; padding: 1px 5p
 .row dd { margin: 0; overflow-wrap: anywhere; }
 .queries { margin: 0; padding: 0; list-style: none; font-size: 12px; }
 .q-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 4px 0; }
+.queries summary { cursor: pointer; list-style: none; }
+.queries summary::-webkit-details-marker { display: none; }
+.queries summary::before { content: "▸"; width: 10px; color: rgb(255 255 255 / .5); transition: transform 150ms; }
+.queries details[open] > summary::before { transform: rotate(90deg); }
+.queries summary:hover .q-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--accent); }
 .query-lines { margin: 0; padding: 4px 0; list-style: none; border-top: 1px solid rgb(255 255 255 / .1); font-size: 12px; }
 .q-jump { cursor: pointer; border-radius: 6px; }
 .q-jump:hover .q-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--accent); }
@@ -110,7 +115,8 @@ kbd { display: inline-block; min-width: 14px; margin-right: 3px; padding: 1px 5p
 .links-rows { border-top: 1px solid rgb(255 255 255 / .1); }
 .pane[data-pane="queries"] { max-height: min(60vh, 520px); overflow: auto; }
 .pane[data-pane="queries"] .tip { top: calc(100% + 8px); bottom: auto; }
-.queries > li + li { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgb(255 255 255 / .1); }
+.queries > li + li { border-top: 1px solid rgb(255 255 255 / .08); }
+.queries details[open] { padding-bottom: 6px; }
 .q-name { font-weight: 700; }
 .queries .info { margin-left: 0; }
 .q-weight { margin-left: auto; color: rgb(255 255 255 / .6); font-weight: 500; }
