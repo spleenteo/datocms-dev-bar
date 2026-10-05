@@ -97,12 +97,53 @@ describe("fetchProjectInfo", () => {
 
 describe("parseDevBarData", () => {
   it("reads the full object and the old plain array", () => {
-    const project = { environments: [{ name: "main", primary: true }], records: [], moreRecords: 0, blocks: 3, error: null };
+    const project = { environments: [{ name: "main", primary: true }], records: [], moreRecords: 0, blocks: 3, blockCounts: [{ model: "Button", modelApiKey: "button", count: 2 }], error: null };
     expect(parseDevBarData(serializeDevBarData({ queries: [], project })).project).toEqual(project);
     expect(parseDevBarData("[]")).toEqual({ queries: [], project: null });
   });
   it("drops edit links that are not https", () => {
     const data = { queries: [], project: { records: [{ id: "R1", editUrl: "javascript:alert(1)" }] } };
     expect(parseDevBarData(JSON.stringify(data)).project?.records[0].editUrl).toBeNull();
+  });
+});
+
+describe("block counts", () => {
+  it("counts every nested block by model, in all locales, once", async () => {
+    const button = (id: string) => ({ id, type: "item", attributes: { label: id }, relationships: { item_type: { data: { id: "TB" } } } });
+    const section = {
+      id: "S1",
+      type: "item",
+      attributes: { buttons: [button("B1"), button("B2")] },
+      relationships: { item_type: { data: { id: "TS" } } },
+    };
+    const fakeFetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/environments")) return json({ data: [{ id: "main", meta: { primary: true } }] });
+      if (url.endsWith("/item-types")) {
+        return json({
+          data: [
+            { id: "TP", attributes: { name: "Page", api_key: "page", modular_block: false } },
+            { id: "TS", attributes: { name: "Section", api_key: "section", modular_block: true } },
+            { id: "TB", attributes: { name: "Button", api_key: "button", modular_block: true } },
+          ],
+        });
+      }
+      expect(url).toContain("nested=true");
+      return json({
+        data: [
+          // A localized modular content field: the Italian and English blocks both count
+          { id: "P1", attributes: { content: { it: [section], en: [button("B3")] } }, meta: {}, relationships: { item_type: { data: { id: "TP" } } } },
+          // The section also arrives on its own: it must not be counted twice
+          { ...section, meta: {} },
+        ],
+      });
+    }) as unknown as typeof fetch;
+    const info = await fetchProjectInfo({ token: "tok-d4", recordIds: ["P1", "S1"], fetch: fakeFetch });
+    expect(info.error).toBeNull();
+    expect(info.blockCounts).toEqual([
+      { model: "Button", modelApiKey: "button", count: 3 },
+      { model: "Section", modelApiKey: "section", count: 1 },
+    ]);
+    expect(info.records.find((r) => r.id === "S1")?.anchor).toEqual({ recordId: "P1", fieldPath: "content.it.0" });
   });
 });

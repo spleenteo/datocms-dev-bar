@@ -20,6 +20,7 @@ const SAMPLE_PROJECT = {
   ],
   moreRecords: 0,
   blocks: 1,
+  blockCounts: [{ model: "Button", modelApiKey: "button", count: 5 }, { model: "Hero", modelApiKey: "hero", count: 2 }],
   error: null,
 };
 

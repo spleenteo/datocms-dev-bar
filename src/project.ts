@@ -30,6 +30,11 @@ export type ProjectInfo = {
   moreRecords: number;
   /** How many of `records` are blocks. */
   blocks: number;
+  /**
+   * Every block inside the page's records, nested ones and all locales included, counted by model
+   * (most first). Read from the records in full, so it also counts blocks the page does not render.
+   */
+  blockCounts: { model: string; modelApiKey: string | null; count: number }[];
   error: string | null;
 };
 
@@ -137,7 +142,7 @@ const statusOf = (value: unknown): RecordStatus =>
 export async function fetchProjectInfo(options: FetchProjectInfoOptions): Promise<ProjectInfo> {
   const max = options.maxRecords ?? 100;
   const ids = [...new Set(options.recordIds)].slice(0, max);
-  const info: ProjectInfo = { environments: [], records: [], moreRecords: Math.max(0, new Set(options.recordIds).size - max), blocks: 0, error: null };
+  const info: ProjectInfo = { environments: [], records: [], moreRecords: Math.max(0, new Set(options.recordIds).size - max), blocks: 0, blockCounts: [], error: null };
   const key = `${options.token.slice(-6)}:${options.environment ?? ""}`;
   try {
     info.environments = await cached(environmentCache, options.token.slice(-6), async () =>
@@ -159,7 +164,17 @@ export async function fetchProjectInfo(options: FetchProjectInfoOptions): Promis
       }
       return map;
     });
-    const items = (await cma(`/items?filter[ids]=${ids.map(encodeURIComponent).join(",")}&version=current&page[limit]=${max}`, options)) as Resource[];
+    // With nested blocks the CMA returns at most 30 records per request: ask in batches, in parallel.
+    const batches: string[][] = [];
+    for (let start = 0; start < ids.length; start += NESTED_PAGE) batches.push(ids.slice(start, start + NESTED_PAGE));
+    const items = (
+      await Promise.all(
+        batches.map(
+          (batch) =>
+            cma(`/items?filter[ids]=${batch.map(encodeURIComponent).join(",")}&version=current&nested=true&page[limit]=${NESTED_PAGE}`, options) as Promise<Resource[]>,
+        ),
+      )
+    ).flat();
     // API keys of the title fields, only for the models on this page.
     const typeIds = new Set(items.map((item) => item.relationships?.item_type?.data?.id).filter((id): id is string => !!id));
     const titleKeys = new Map<string, string>();
@@ -191,22 +206,39 @@ export async function fetchProjectInfo(options: FetchProjectInfoOptions): Promis
     const base = options.projectUrl?.trim().replace(/\/+$/, "");
     const envPath = options.environment && options.environment !== primary ? `/environments/${encodeURIComponent(options.environment)}` : "";
     const byId = new Map(items.map((item) => [String(item.id), item]));
-    const isBlock = (id: string) => {
-      const typeId = byId.get(id)?.relationships?.item_type?.data?.id;
-      return typeId ? models.get(typeId)?.block === true : false;
-    };
-    // Each block's holder and its place in it: a single-block field gives `field`, a list `field.index`.
+    const typeOf = (node: unknown) => (node as Resource | null)?.relationships?.item_type?.data?.id;
+    const isBlockModel = (typeId: string | undefined) => (typeId ? models.get(typeId)?.block === true : false);
+    // With nested=true the blocks come inside their records, in every locale and at any depth.
+    const nestedBlocks = new Set<string>();
     const holders = new Map<string, { parentId: string; segment: string }>();
-    for (const item of items) {
-      for (const [field, value] of Object.entries(item.attributes ?? {})) {
-        if (typeof value === "string" && isBlock(value)) holders.set(value, { parentId: String(item.id), segment: field });
-        if (Array.isArray(value)) {
-          value.forEach((child, index) => {
-            if (typeof child === "string" && isBlock(child)) holders.set(child, { parentId: String(item.id), segment: `${field}.${index}` });
-          });
-        }
+    const counts = new Map<string, number>();
+    const isBlock = (id: string) => nestedBlocks.has(id) || isBlockModel(typeOf(byId.get(id)));
+    // A single-block field gives `field`, a list `field.index`, a localized value `field.locale…`.
+    const visit = (parentId: string, segment: string, value: unknown, count: boolean, depth: number): void => {
+      if (depth > 20 || value === null || typeof value !== "object") {
+        if (typeof value === "string" && isBlockModel(typeOf(byId.get(value)))) holders.set(value, { parentId, segment });
+        return;
       }
+      const node = value as Resource & { type?: string };
+      if (node.type === "item" && isBlockModel(typeOf(node))) {
+        const id = String(node.id);
+        nestedBlocks.add(id);
+        if (!holders.has(id)) holders.set(id, { parentId, segment });
+        if (count) counts.set(typeOf(node)!, (counts.get(typeOf(node)!) ?? 0) + 1);
+        for (const [field, child] of Object.entries(node.attributes ?? {})) visit(id, field, child, count, depth + 1);
+        return;
+      }
+      const entries = Array.isArray(value) ? value.map((child, index) => [String(index), child] as const) : Object.entries(value);
+      for (const [key, child] of entries) visit(parentId, `${segment}.${key}`, child, count, depth + 1);
+    };
+    for (const item of items) {
+      // Only records count their blocks: a block fetched on its own is already inside its record.
+      const count = !isBlockModel(typeOf(item));
+      for (const [field, value] of Object.entries(item.attributes ?? {})) visit(String(item.id), field, value, count, 0);
     }
+    info.blockCounts = [...counts]
+      .map(([typeId, total]) => ({ model: models.get(typeId)?.name || typeId, modelApiKey: models.get(typeId)?.apiKey || null, count: total }))
+      .sort((a, b) => b.count - a.count || a.model.localeCompare(b.model));
     const anchorOf = (id: string): RecordInfo["anchor"] => {
       const path: string[] = [];
       let current = id;

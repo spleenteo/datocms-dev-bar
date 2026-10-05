@@ -146,6 +146,7 @@ test("records are grouped by model and can be filtered", async ({ page }) => {
   await expect(groups).toHaveCount(3);
   await expect(control(page, ".r-group .r-model")).toHaveText(["Home page", "Menu item", "Button"]);
   await expect(control(page, ".records-note")).toHaveText("3 records, 1 block.");
+  await expect(control(page, ".block-total")).toHaveText("7 blocks in these records, all locales");
   const menu = groups.nth(1);
   await expect(menu.locator(".r-count")).toHaveText("×2");
   await expect(menu.locator("summary .r-dot")).toHaveAttribute("aria-label", "1 not published");

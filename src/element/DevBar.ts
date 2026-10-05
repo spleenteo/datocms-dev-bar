@@ -301,6 +301,19 @@ export class DevBar extends Base {
     filter.hidden = records.length === 0;
     filter.value = this.recordFilter;
     list.replaceChildren(...groupByModel(records).map((group) => groupItem(group)));
+    // Every block inside these records, by model, all locales
+    const counts = project && !project.error ? project.blockCounts : [];
+    const box = root.querySelector<HTMLElement>(".block-counts")!;
+    box.hidden = counts.length === 0;
+    const total = counts.reduce((sum, b) => sum + b.count, 0);
+    root.querySelector<HTMLElement>(".block-total")!.textContent = `${total} ${total === 1 ? "block" : "blocks"} in these records, all locales`;
+    root.querySelector<HTMLElement>(".block-list")!.replaceChildren(
+      ...counts.map((b) => {
+        const item = el("li");
+        item.append(el("span", "r-model", b.model), el("span", "r-count", `×${b.count}`));
+        return item;
+      }),
+    );
     this.applyRecordFilter();
   }
 

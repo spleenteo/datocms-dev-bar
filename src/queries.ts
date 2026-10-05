@@ -154,6 +154,9 @@ function parseProject(value: unknown): ProjectInfo | null {
       ),
     moreRecords: count(raw.moreRecords) ?? 0,
     blocks: count(raw.blocks) ?? 0,
+    blockCounts: list(raw.blockCounts)
+      .filter((b) => typeof b.model === "string" && typeof b.count === "number")
+      .map((b) => ({ model: b.model as string, modelApiKey: text(b.modelApiKey), count: b.count as number })),
     error: text(raw.error),
   };
 }

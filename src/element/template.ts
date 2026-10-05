@@ -92,6 +92,10 @@ export const TEMPLATE = `
     <div class="records-block">
       <h3>Records on this page<span class="info"><button type="button" class="i" aria-label="About records" aria-describedby="tip-records">i</button><span class="tip" role="tooltip" id="tip-records">Records whose content the page shows, read from the Content Management API with a read-only token on the server. Dot: green published, yellow unpublished changes, hollow draft. With Visual editing on, click a record to scroll to it on the page.</span></span></h3>
       <p class="records-note"></p>
+      <details class="block-counts" hidden>
+        <summary><span class="block-total"></span><span class="info"><button type="button" class="i" aria-label="About block counts" aria-describedby="tip-blocks">i</button><span class="tip" role="tooltip" id="tip-blocks">Every block inside the records of this page, nested ones and all locales included, counted by model. Read from the records in full, so it also counts blocks the page does not show.</span></span></summary>
+        <ul class="block-list"></ul>
+      </details>
       <input class="records-filter" type="search" placeholder="Filter models and blocks" aria-label="Filter models and blocks" hidden>
       <ul class="records"></ul>
     </div>

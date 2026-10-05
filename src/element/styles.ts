@@ -141,6 +141,10 @@ kbd { display: inline-block; min-width: 14px; margin-right: 3px; padding: 1px 5p
 .r-head .r-title { flex: 1 1 auto; }
 .r-items { margin: 0; padding: 0 0 4px 22px; list-style: none; }
 .r-count { color: rgb(255 255 255 / .6); font-weight: 600; }
+.block-counts { margin: 0 0 6px; }
+.block-counts summary { display: flex; align-items: center; gap: 6px; cursor: pointer; color: rgb(255 255 255 / .85); font-weight: 600; }
+.block-list { margin: 4px 0 0; padding: 0 0 0 16px; list-style: none; columns: 2; column-gap: 16px; }
+.block-list li { display: flex; gap: 6px; padding: 1px 0; break-inside: avoid; }
 .records-filter {
   box-sizing: border-box; width: 100%; margin: 2px 0 6px; padding: 6px 10px; border: 1px solid rgb(255 255 255 / .2);
   border-radius: 8px; background: rgb(255 255 255 / .06); color: #fff; font: inherit; font-weight: 500;
