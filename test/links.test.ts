@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectHref } from "../src/element/links";
+import { environmentInfo, projectHref } from "../src/element/links";
 
 describe("projectHref", () => {
   it("returns null without a project url", () => {
@@ -16,5 +16,18 @@ describe("projectHref", () => {
   });
   it("ignores an empty environment", () => {
     expect(projectHref("https://demo.admin.datocms.com", "  ")).toBe("https://demo.admin.datocms.com");
+  });
+});
+
+describe("environmentInfo", () => {
+  it("treats a missing or blank environment as the primary one", () => {
+    expect(environmentInfo(null, false)).toEqual({ name: null, primary: true });
+    expect(environmentInfo("  ", false)).toEqual({ name: null, primary: true });
+  });
+  it("treats a named environment as not primary", () => {
+    expect(environmentInfo("main-astro-26", false)).toEqual({ name: "main-astro-26", primary: false });
+  });
+  it("trusts the primary marker on a named environment", () => {
+    expect(environmentInfo("main", true)).toEqual({ name: "main", primary: true });
   });
 });
