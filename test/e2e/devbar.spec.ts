@@ -108,12 +108,13 @@ test("General shows the environment, how the queries performed, and a line per q
   await expect(general.locator("[data-row=complexity]")).toHaveText("1,500,000 of 21,294,900 (highest)");
   await expect(general.locator("[data-row=cache]")).toHaveText("Partly, 1 of 2 from cache");
   await expect(general.locator("[data-row=cacheTags]")).toHaveText("Active on all 2");
-  await expect(general.locator(".rows .i")).toHaveCount(6);
+  await expect(general.locator(".rows .i")).toHaveCount(7);
+  await expect(general.locator("[data-row=size]")).toHaveText("257 KB in total, largest 254 KB");
   await general.locator(".i").first().hover();
   await expect(control(page, "#tip-environment")).toBeVisible();
   const lines = general.locator(".query-lines li");
   await expect(lines).toHaveCount(2);
-  await expect(lines.nth(1).locator(".flag")).toHaveText(["slow", "heavy 7%"]);
+  await expect(lines.nth(1).locator(".flag")).toHaveText(["slow", "heavy 7%", "large 254 KB"]);
   await lines.nth(1).locator(".i").hover();
   await expect(lines.nth(1).locator(".tip")).toContainText("complexity");
   await lines.nth(1).locator(".i").click();

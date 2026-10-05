@@ -16,6 +16,8 @@ export type QueryReport = {
   queryLengthLimit: number | null;
   cache: CacheStatus;
   cacheTags: CacheTagsStatus;
+  /** Size of the JSON response, uncompressed, in bytes. */
+  responseBytes: number | null;
   /** The query text and its variables (as JSON), when the site hands them over. */
   query: string | null;
   variables: string | null;
@@ -29,7 +31,18 @@ export type ReadQueryReportOptions = {
   query?: string | null;
   /** The variables: anything JSON can hold. */
   variables?: unknown;
+  /** The query result (the data), to measure the response size. Without it, Content-Length is used when present. */
+  result?: unknown;
 };
+
+function jsonBytes(value: unknown): number | null {
+  try {
+    const json = JSON.stringify(value);
+    return json === undefined ? null : new TextEncoder().encode(json).length;
+  } catch {
+    return null;
+  }
+}
 
 function variablesAsJson(variables: unknown): string | null {
   if (variables === undefined || variables === null) return null;
@@ -80,6 +93,7 @@ export function readQueryReport(headers: HeaderSource, options: ReadQueryReportO
     queryLengthLimit: toNumber(limit),
     cache: cacheStatusOf(headers.get("cf-cache-status")),
     cacheTags: !options.cacheTagsRequested ? "not-requested" : tags ? "active" : "missing",
+    responseBytes: options.result !== undefined ? jsonBytes(options.result) : toNumber(headers.get("content-length")),
     query: options.query?.trim() || null,
     variables: variablesAsJson(options.variables),
   };
@@ -175,6 +189,7 @@ export function parseQueryReports(json: string | null | undefined): QueryReport[
       queryLengthLimit: count(item.queryLengthLimit),
       cache: oneOf(item.cache, ["hit", "miss", "bypass", "unknown"], "unknown"),
       cacheTags: oneOf(item.cacheTags, ["active", "not-requested", "missing"], "not-requested"),
+      responseBytes: count(item.responseBytes),
       query: text(item.query),
       variables: text(item.variables),
     }));
@@ -183,6 +198,7 @@ export function parseQueryReports(json: string | null | undefined): QueryReport[
 export type SummaryRows = {
   environment: string;
   time: string;
+  size: string;
   complexity: string;
   queryLength: string;
   cache: string;
@@ -190,6 +206,14 @@ export type SummaryRows = {
 };
 
 const NOT_AVAILABLE = "n/a";
+
+/** Bytes as KB (one decimal under 10 KB) or MB. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
 const number = (value: number) => value.toLocaleString("en-US");
 
 function highest<T>(items: T[], score: (item: T) => number | null): T | undefined {
@@ -225,9 +249,16 @@ export function summarizeReports(reports: QueryReport[]): SummaryRows {
     ? `${number(longest.queryLength!)}${longest.queryLengthLimit !== null ? ` of ${number(longest.queryLengthLimit)}` : ""}${many ? " (longest)" : ""}`
     : NOT_AVAILABLE;
 
+  const sizes = reports.map((r) => r.responseBytes).filter((b): b is number => b !== null);
+  const total = sizes.reduce((a, b) => a + b, 0);
+  const size = sizes.length
+    ? `${formatBytes(total)}${many ? ` in total, largest ${formatBytes(Math.max(...sizes))}` : ""}`
+    : NOT_AVAILABLE;
+
   return {
     environment: environments.length ? environments.join(", ") : NOT_AVAILABLE,
     time,
+    size,
     complexity,
     queryLength,
     cache: describeCache(reports),
@@ -260,8 +291,9 @@ function describeCacheTags(reports: QueryReport[]): string {
 export const SLOW_MS = 500;
 export const HEAVY_SHARE = 0.05;
 export const NEAR_LIMIT_SHARE = 0.75;
+export const LARGE_BYTES = 200 * 1024;
 
-export type Flag = { kind: "slow" | "heavy" | "near-limit"; label: string; why: string };
+export type Flag = { kind: "slow" | "heavy" | "near-limit" | "large"; label: string; why: string };
 
 const percent = (share: number) => `${share < 0.01 ? "<1" : Math.round(share * 100)}%`;
 
@@ -295,15 +327,23 @@ export function assessReport(report: QueryReport): Flag[] {
       });
     }
   }
+  if (report.responseBytes !== null && report.responseBytes >= LARGE_BYTES) {
+    flags.push({
+      kind: "large",
+      label: `large ${formatBytes(report.responseBytes)}`,
+      why: `The response is ${formatBytes(report.responseBytes)} of JSON, from ${formatBytes(LARGE_BYTES)} up it is worth a look. Fewer fields or smaller lists shrink it; in drafts, Content Link adds hidden characters to every text.`,
+    });
+  }
   return flags;
 }
 
 /** The three measures of a query as short text, for its row: time, share of max complexity, share of the length limit. */
-export function describeWeight(report: QueryReport): { time: string; complexity: string; length: string } {
+export function describeWeight(report: QueryReport): { time: string; complexity: string; length: string; size: string } {
   const share = (value: number | null, max: number | null) => (value !== null && max ? percent(value / max) : NOT_AVAILABLE);
   return {
     time: report.timingsTotalMs === null ? NOT_AVAILABLE : `${number(report.timingsTotalMs)} ms`,
     complexity: share(report.complexity, report.maxComplexity),
     length: share(report.queryLength, report.queryLengthLimit),
+    size: report.responseBytes === null ? NOT_AVAILABLE : formatBytes(report.responseBytes),
   };
 }

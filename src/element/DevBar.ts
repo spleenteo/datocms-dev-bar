@@ -25,6 +25,7 @@ export type ChangeDetail = { mode: Mode; visualEditing: boolean };
 // What the figures on a query line mean, in the order they appear.
 const WEIGHT_HELP = [
   ["ms", "time DatoCMS spent on the query. On a cache hit it repeats the time of the original run."],
+  ["KB", "size of the JSON response, uncompressed."],
   ["cx", "complexity, as a share of the maximum DatoCMS accepts. Deep nesting and long lists raise it."],
   ["len", "length of the query text, as a share of the limit for being cached on the CDN."],
   ["hit, miss, bypass", "hit: answered from the CDN cache. miss: computed now and stored. bypass: caching skipped, as with drafts."],
@@ -242,7 +243,7 @@ export class DevBar extends Base {
       line.append(chip);
     }
     const weight = describeWeight(report);
-    line.append(el("span", "q-weight", `${weight.time} · cx ${weight.complexity} · len ${weight.length} · ${report.cache}`));
+    line.append(el("span", "q-weight", `${weight.time} · ${weight.size} · cx ${weight.complexity} · len ${weight.length} · ${report.cache}`));
     line.append(this.weightInfo(++this.tipCount));
     return line;
   }

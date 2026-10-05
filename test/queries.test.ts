@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessReport, describeWeight, parseQueryReports, readQueryReport, serializeQueryReports, summarizeReports, type QueryReport } from "../src/queries";
+import { assessReport, describeWeight, formatBytes, parseQueryReports, readQueryReport, serializeQueryReports, summarizeReports, type QueryReport } from "../src/queries";
 
 const headers = (values: Record<string, string>) => ({ get: (name: string) => values[name.toLowerCase()] ?? null });
 
@@ -23,6 +23,7 @@ const report = (over: Partial<QueryReport> = {}): QueryReport => ({
   queryLengthLimit: 12000,
   cache: "hit",
   cacheTags: "active",
+  responseBytes: null,
   query: null,
   variables: null,
   ...over,
@@ -40,6 +41,7 @@ describe("readQueryReport", () => {
       queryLengthLimit: 12000,
       cache: "hit",
       cacheTags: "active",
+      responseBytes: null,
       query: null,
       variables: null,
     });
@@ -84,7 +86,7 @@ describe("serialize and parse", () => {
     expect(parseQueryReports('{"a":1}')).toEqual([]);
     expect(parseQueryReports(null)).toEqual([]);
     expect(parseQueryReports('[1,"x",{"cache":"nope","complexity":"12"}]')).toEqual([
-      report({ operation: null, environment: null, timingsTotalMs: null, complexity: null, maxComplexity: null, queryLength: null, queryLengthLimit: null, cache: "unknown", cacheTags: "not-requested", query: null, variables: null }),
+      report({ operation: null, environment: null, timingsTotalMs: null, complexity: null, maxComplexity: null, queryLength: null, queryLengthLimit: null, cache: "unknown", cacheTags: "not-requested", responseBytes: null, query: null, variables: null }),
     ]);
   });
 });
@@ -98,6 +100,7 @@ describe("summarizeReports", () => {
       queryLength: "192 of 12,000",
       cache: "Yes, from cache",
       cacheTags: "Active",
+      size: "n/a",
     });
   });
   it("sums times and picks the extremes across queries", () => {
@@ -117,7 +120,7 @@ describe("summarizeReports", () => {
     expect(summarizeReports([report(), report({ cacheTags: "missing" })]).cacheTags).toBe("Partly, active on 1 of 2");
   });
   it("answers n/a without queries", () => {
-    expect(Object.values(summarizeReports([]))).toEqual(Array(6).fill("n/a"));
+    expect(Object.values(summarizeReports([]))).toEqual(Array(7).fill("n/a"));
   });
 });
 
@@ -151,6 +154,7 @@ describe("describeWeight", () => {
       time: "1,830 ms",
       complexity: "<1%",
       length: "13%",
+      size: "n/a",
     });
   });
   it("answers n/a when a number is missing", () => {
@@ -158,6 +162,23 @@ describe("describeWeight", () => {
       time: "n/a",
       complexity: "n/a",
       length: "n/a",
+      size: "n/a",
     });
+  });
+});
+
+describe("response size", () => {
+  it("measures the result as UTF-8 JSON, else trusts Content-Length", () => {
+    expect(readQueryReport(headers({}), { cacheTagsRequested: false, result: { a: "è" } }).responseBytes).toBe(10);
+    expect(readQueryReport(headers({ "content-length": "2048" }), { cacheTagsRequested: false }).responseBytes).toBe(2048);
+    expect(readQueryReport(headers({}), { cacheTagsRequested: false }).responseBytes).toBeNull();
+  });
+  it("sums sizes and flags a large response", () => {
+    const s = summarizeReports([report({ responseBytes: 3_000 }), report({ responseBytes: 250_000 })]);
+    expect(s.size).toBe("247 KB in total, largest 244 KB");
+    expect(assessReport(report({ responseBytes: 250_000 })).map((f) => f.label)).toEqual(["large 244 KB"]);
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(5_000)).toBe("4.9 KB");
+    expect(formatBytes(3_000_000)).toBe("2.9 MB");
   });
 });

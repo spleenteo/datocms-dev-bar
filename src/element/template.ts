@@ -11,6 +11,11 @@ const ROWS = [
     tip: "Time DatoCMS spent on the query (x-timings-total). It leaves out the network trip and your server. On a cache hit it repeats the time of the original run.",
   },
   {
+    key: "size",
+    label: "Response size",
+    tip: "Size of the JSON DatoCMS sent back, uncompressed: the network moves less thanks to compression. In drafts with Visual editing on, Content Link adds hidden characters to every text, so responses are bigger than on published content.",
+  },
+  {
     key: "complexity",
     label: "Complexity",
     tip: "How costly the query is, against the maximum DatoCMS accepts (x-complexity and x-max-complexity). Deep nesting and long lists raise it.",

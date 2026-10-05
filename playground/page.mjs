@@ -5,8 +5,8 @@ const PAGES = { "/": "Home", "/other": "Another page", "/double": "Two bars", "/
 
 // Stand-ins for what a site would hand to the Advanced panel (the real thing is built from CDA response headers).
 const SAMPLE_REPORTS = [
-  { operation: "HomeQuery", environment: "main", timingsTotalMs: 35, complexity: 102, maxComplexity: 21294900, queryLength: 192, queryLengthLimit: 12000, cache: "hit", cacheTags: "active", query: "query HomeQuery {\n  homePage {\n    title\n  }\n}", variables: null },
-  { operation: "MenuQuery", environment: "main", timingsTotalMs: 612, complexity: 1500000, maxComplexity: 21294900, queryLength: 80, queryLengthLimit: 12000, cache: "miss", cacheTags: "active", query: "query MenuQuery($locale: SiteLocale) {\n  allMenuItems(locale: $locale) {\n    label\n  }\n}", variables: '{\n  "locale": "it"\n}' },
+  { operation: "HomeQuery", environment: "main", timingsTotalMs: 35, complexity: 102, maxComplexity: 21294900, queryLength: 192, queryLengthLimit: 12000, cache: "hit", cacheTags: "active", responseBytes: 3200, query: "query HomeQuery {\n  homePage {\n    title\n  }\n}", variables: null },
+  { operation: "MenuQuery", environment: "main", timingsTotalMs: 612, complexity: 1500000, maxComplexity: 21294900, queryLength: 80, queryLengthLimit: 12000, cache: "miss", cacheTags: "active", responseBytes: 260000, query: "query MenuQuery($locale: SiteLocale) {\n  allMenuItems(locale: $locale) {\n    label\n  }\n}", variables: '{\n  "locale": "it"\n}' },
 ];
 
 // Stand-in for what a site reads from the Content Management API with a read-only token.
