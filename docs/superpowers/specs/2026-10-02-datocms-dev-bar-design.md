@@ -1,152 +1,154 @@
 # datocms-dev-bar: design
 
-Data: 2026-10-02
-Stato: approvata il 2026-10-02.
-Pacchetto: `@spleenteo/datocms-dev-bar`.
+Date: 2026-10-02
+Status: approved on 2026-10-02.
+Package: `@spleenteo/datocms-dev-bar`.
 
-## Obiettivo
+> **Later changes.** The X-ray direction in section 7 shipped as the **Advanced panel** (tabs General, Records, Queries, Help), with an optional read-only Content Management API token on the server. The size target moved from 6 KB to 16 KB to make room for it. The README describes the current behaviour; this document records the original design.
 
-Uno strumento per chi sviluppa siti DatoCMS in locale, spesso con Claude acceso e un browser su localhost. Serve a due cose:
+## Goal
 
-1. passare in un clic tra contenuti draft e published, perché cambiano quello che la pagina mostra e servono entrambi;
-2. accendere e spegnere il visual editing (Content Link), perché i riquadri arancioni aiutano quando si modifica un contenuto e disturbano quando si sviluppa.
+A tool for people who build DatoCMS sites locally, often with Claude running and a browser on localhost. It does two things:
 
-Più un link al progetto DatoCMS, che si apre in una nuova finestra.
+1. switch between draft and published content in one click, because they change what the page shows and both are needed;
+2. turn visual editing (Content Link) on and off, because the orange outlines help while editing content and get in the way while developing.
 
-È riuscito se aggiungerlo a un progetto nuovo richiede pochi minuti e una manciata di righe, in qualsiasi framework.
+Plus a link to the DatoCMS project, which opens in a new window.
 
-### Vincoli
+It succeeds if adding it to a new project takes a few minutes and a handful of lines, in any framework.
 
-- Solo sviluppo locale. In produzione non fa niente, nemmeno se finisce nel bundle.
-- Indipendente dal framework: Astro, Next.js, Nuxt, SvelteKit, HTML puro.
-- Nessuna dipendenza: niente Tailwind, niente librerie di UI, niente runtime esterni.
-- Nato dalla barra delle bozze di gestart-astro (`src/components/DraftModeBanner`), da cui eredita forma e comportamento.
+### Constraints
 
-### Fuori da questa versione
+- Local development only. In production it does nothing, even if it ends up in the bundle.
+- Framework independent: Astro, Next.js, Nuxt, SvelteKit, plain HTML.
+- No dependencies: no Tailwind, no UI libraries, no external runtimes.
+- Born from the draft bar of gestart-astro (`src/components/DraftModeBanner`), from which it inherits shape and behaviour.
 
-- Produzione e editor: cookie firmati, gettoni di Web Previews, sessioni DatoCMS.
-- Raggi X (vedi sezione 7).
-- Estensione per il browser (vedi sezione 7).
-- Cambio di environment DatoCMS: resta configurazione del progetto.
+### Out of this version
 
-## Architettura in breve
+- Production and editors: signed cookies, Web Previews tokens, DatoCMS sessions.
+- X-ray (see section 7).
+- Browser extension (see section 7).
+- Switching DatoCMS environment: it stays project configuration.
 
-Tre pezzi, ognuno usabile da solo:
+## Architecture in short
 
-| Pezzo | Dove gira | Cosa fa |
+Three pieces, each usable on its own:
+
+| Piece | Where it runs | What it does |
 |---|---|---|
-| Contratto | documentazione | nomi e valori di cookie e parametri URL |
-| `<datocms-dev-bar>` | browser | l'interfaccia: scrive i cookie e ricarica |
-| `@spleenteo/datocms-dev-bar/server` | server del sito | legge cookie e parametri, restituisce le opzioni per la CDA |
+| Contract | documentation | names and values of cookies and URL parameters |
+| `<datocms-dev-bar>` | browser | the interface: writes the cookies and reloads |
+| `@spleenteo/datocms-dev-bar/server` | the site's server | reads cookies and parameters, returns the options for the CDA |
 
-Il widget non chiama endpoint e non conosce i token. Il sito non conosce il widget: legge solo due cookie. Chi non vuole il nostro helper implementa il contratto a mano.
+The widget calls no endpoint and knows no token. The site does not know the widget: it only reads two cookies. Whoever does not want our helper implements the contract by hand.
 
-## 1. Il contratto (approvato)
+## 1. The contract (approved)
 
-### Cookie
+### Cookies
 
-Scritti dal widget con `path=/`, `SameSite=Lax`, senza scadenza (cookie di sessione).
+Written by the widget with `path=/`, `SameSite=Lax`, no expiry (session cookies).
 
-| Cookie | Valori | Default se assente o non valido | Effetto sulla query |
+| Cookie | Values | Default when missing or invalid | Effect on the query |
 |---|---|---|---|
 | `datocms-mode` | `draft` \| `published` | `draft` | `draft` → `includeDrafts: true` |
-| `datocms-visual` | `on` \| `off` | `on` | `on` e mode `draft` → `contentLink: "v1"` e `baseEditingUrl` |
+| `datocms-visual` | `on` \| `off` | `on` | `on` and mode `draft` → `contentLink: "v1"` and `baseEditingUrl` |
 
-- Il visual editing vale solo in draft. Sul pubblicato l'interruttore appare disattivato.
-- Spegnere il visual editing non richiede niente lato client: senza metadati nella risposta lo script degli overlay non ha niente da evidenziare.
+- Visual editing only applies to drafts. On published content the switch is disabled.
+- Turning visual editing off needs nothing on the client: without metadata in the response, the overlay script has nothing to highlight.
 
-### Parametri URL
+### URL parameters
 
-`?datocms=draft|published` e `?datocms-visual=on|off`.
+`?datocms=draft|published` and `?datocms-visual=on|off`.
 
-- Il server li legge per primi, prima dei cookie, così la prima risposta è già quella giusta. Fa parte del contratto: chi lo implementa a mano legge anche i parametri.
-- Il widget, al caricamento, li copia nei cookie e li toglie dall'URL con `history.replaceState`, senza ricaricare. Le pagine successive leggono il cookie.
-- Il widget non può sapere che cosa ha mostrato il server, quindi non prova a correggerlo. Un sito che ignora i parametri mostra la versione sbagliata solo su quella prima pagina.
+- The server reads them first, before the cookies, so the first response is already the right one. This is part of the contract: whoever implements it by hand reads the parameters too.
+- On load, the widget copies them into the cookies and removes them from the URL with `history.replaceState`, without reloading. The following pages read the cookie.
+- The widget cannot know what the server showed, so it does not try to correct it. A site that ignores the parameters shows the wrong version only on that first page.
 
-Uso tipico con Claude: aprire `http://localhost:4321/chi-siamo?datocms=published` per vedere la pagina pubblicata.
+Typical use with Claude: open `http://localhost:4321/about?datocms=published` to see the published page.
 
-### Corrispondenza con la CDA
+### Mapping to the CDA
 
-| Stato | `@datocms/cda-client` | header HTTP grezzi |
+| State | `@datocms/cda-client` | raw HTTP headers |
 |---|---|---|
 | draft | `includeDrafts: true` | `X-Include-Drafts: true` |
 | draft + visual on | `contentLink: "v1"`, `baseEditingUrl` | `X-Visual-Editing: v1`, `X-Base-Editing-Url: <url>` |
-| published | nessuna opzione | nessun header |
+| published | no option | no header |
 
-Con `X-Include-Drafts` basta un solo token, purché abbia accesso alle bozze.
+With `X-Include-Drafts` one token is enough, as long as it can read drafts.
 
-### Sicurezza
+### Security
 
-- L'helper restituisce sempre "published, senza Content Link" se non riceve `isDev: true`. Un cookie scritto a mano su un sito in produzione non apre le bozze.
-- Il widget non si mostra se `location.hostname` non è `localhost`, `127.0.0.1`, `[::1]` o un host che finisce in `.local`, `.localhost` o `.test`, salvo host aggiunti con l'attributo `allow-hosts`.
+- The helper always returns "published, without Content Link" unless it receives `isDev: true`. A hand-written cookie on a production site does not open drafts.
+- The widget does not show if `location.hostname` is not `localhost`, `127.0.0.1`, `[::1]` or a host ending in `.local`, `.localhost` or `.test`, except hosts added with the `allow-hosts` attribute.
 
-## 2. Il web component `<datocms-dev-bar>`
+## 2. The `<datocms-dev-bar>` web component
 
-### Uso
+### Use
 
 ```html
 <script type="module" src="https://cdn.jsdelivr.net/npm/@spleenteo/datocms-dev-bar"></script>
-<datocms-dev-bar project-url="https://mio-progetto.admin.datocms.com"></datocms-dev-bar>
+<datocms-dev-bar project-url="https://my-project.admin.datocms.com"></datocms-dev-bar>
 ```
 
-Oppure da npm: `import "@spleenteo/datocms-dev-bar"` registra l'elemento.
+Or from npm: `import "@spleenteo/datocms-dev-bar"` registers the element.
 
-### Attributi
+### Attributes
 
-| Attributo | Default | Significato |
+| Attribute | Default | Meaning |
 |---|---|---|
-| `project-url` | nessuno | URL dell'admin DatoCMS. Senza, il link al progetto non compare |
-| `environment` | nessuno | se presente, il link punta a `<project-url>/environments/<environment>` |
-| `position` | `bottom-left` | `bottom-left` \| `bottom-right`: lato su cui sta la linguetta |
-| `reload` | `true` | `false` per i siti che gestiscono il cambio da soli (vedi Eventi) |
-| `allow-hosts` | nessuno | host in più, separati da spazio, dove il widget si mostra |
-| `shortcuts` | `on` | `off` per disattivare le scorciatoie da tastiera |
+| `project-url` | none | DatoCMS admin URL. Without it the project link does not show |
+| `environment` | none | when present, the link points to `<project-url>/environments/<environment>` |
+| `position` | `bottom-left` | `bottom-left` \| `bottom-right`: the side the tab sits on |
+| `reload` | `true` | `false` for sites that handle the change themselves (see Events) |
+| `allow-hosts` | none | extra hosts, space separated, where the widget shows |
+| `shortcuts` | `on` | `off` turns the keyboard shortcuts off |
 
-Colore e posizione verticale si regolano con proprietà CSS sull'elemento: `--dev-bar-accent` (default `#FF593D`), `--dev-bar-bottom` (default `12px`).
+Colour and vertical position are set with CSS properties on the element: `--dev-bar-accent` (default `#FF593D`), `--dev-bar-bottom` (default `12px`).
 
-### Forma
+### Shape
 
-Ereditata da gestart-astro:
+Inherited from gestart-astro:
 
-- **Linguetta**: mezzaluna di 24×48 px attaccata al bordo dello schermo, colore accent, con un pallino bianco di 16 px tagliato a metà dal bordo: la D di DatoCMS. Sta sopra la barra (z-index superiore) anche da aperta.
-- **Stato leggibile a barra chiusa**: in draft il pallino è pieno, in published diventa un anello. Si capisce cosa si sta guardando senza aprire niente.
-- **Barra**: nera, arrotondata, scorre fuori dal bordo al clic sulla linguetta e rientra al secondo clic. Contiene, in ordine:
-  1. `Viewing` con l'interruttore `draft` | `published`;
-  2. `Visual editing` con l'interruttore `on` | `off`, disattivato in published;
-  3. `DatoCMS ↗`, se c'è `project-url`.
-- **Apertura**: solo al clic, con lo stato in `sessionStorage` (chiave `datocms-dev-bar:open`), così resta aperta dopo il ricaricamento causato da un interruttore.
-- Su schermi stretti la barra va a capo, come oggi.
-- Con `prefers-reduced-motion` niente animazione di scorrimento, solo dissolvenza.
+- **Tab**: a 24×48 px half-moon attached to the screen edge, in the accent colour, with a 16 px white dot cut in half by the edge: the D of DatoCMS. It stays above the bar (higher z-index) even when open.
+- **State readable with the bar closed**: in draft the dot is full, in published it becomes a ring. You can tell what you are looking at without opening anything.
+- **Bar**: black, rounded, slides out from the edge when the tab is clicked and back in on the second click. It contains, in order:
+  1. `Viewing` with the `draft` | `published` switch;
+  2. `Visual editing` with the `on` | `off` switch, disabled in published;
+  3. `DatoCMS ↗`, when `project-url` is set.
+- **Opening**: on click only, with the state in `sessionStorage` (key `datocms-dev-bar:open`), so it stays open after the reload a switch causes.
+- On narrow screens the bar wraps, as it does today.
+- With `prefers-reduced-motion`, no sliding animation, only a fade.
 
-### Scorciatoie da tastiera
+### Keyboard shortcuts
 
-- `Alt+Shift+D`: alterna draft e published.
-- `Alt+Shift+V`: alterna visual editing on e off.
-- `Alt+Shift+B`: apre e chiude la barra.
+- `Alt+Shift+D`: switch between draft and published.
+- `Alt+Shift+V`: switch visual editing on and off.
+- `Alt+Shift+B`: open and close the bar.
 
-Ignorate quando il focus è in un campo di testo.
+Ignored while focus is in a text field.
 
-### Isolamento
+### Isolation
 
-Shadow DOM con il proprio `<style>`. Il CSS del sito non entra, quello del widget non esce. Nessun font esterno: `system-ui`.
+Shadow DOM with its own `<style>`. The site's CSS does not get in, the widget's does not get out. No external font: `system-ui`.
 
-### Eventi
+### Events
 
-Prima di ricaricare, l'elemento emette `datocms-dev-bar:change` con `detail: { mode, visualEditing }`. L'evento è annullabile: con `preventDefault()`, o con `reload="false"`, il widget scrive i cookie ma non ricarica. Serve alle app che preferiscono un aggiornamento morbido, per esempio `router.refresh()` in Next.js.
+Before reloading, the element emits `datocms-dev-bar:change` with `detail: { mode, visualEditing }`. The event is cancelable: with `preventDefault()`, or with `reload="false"`, the widget writes the cookies but does not reload. It serves apps that prefer a soft refresh, for example `router.refresh()` in Next.js.
 
-### Accessibilità
+### Accessibility
 
-- Linguetta: `<button>` con `aria-expanded` e `aria-controls`, etichetta "DatoCMS dev bar".
-- Interruttori: gruppi di pulsanti con `aria-pressed`.
-- Link al progetto: `target="_blank" rel="noopener"` e testo nascosto "(opens in a new window)".
+- Tab: a `<button>` with `aria-expanded` and `aria-controls`, labelled "DatoCMS dev bar".
+- Switches: button groups with `aria-pressed`.
+- Project link: `target="_blank" rel="noopener"` and hidden text "(opens in a new window)".
 
-### Dimensioni
+### Size
 
-Obiettivo: meno di 6 KB compressi.
+Target: under 6 KB gzipped.
 
-## 3. L'helper lato server `@spleenteo/datocms-dev-bar/server`
+## 3. The server helper `@spleenteo/datocms-dev-bar/server`
 
-Funzioni pure, senza dipendenze, che funzionano in Node, Workers, Deno e Bun.
+Pure functions, with no dependencies, that work in Node, Workers, Deno and Bun.
 
 ```ts
 import { readDevPreview } from "@spleenteo/datocms-dev-bar/server";
@@ -154,81 +156,81 @@ import { readDevPreview } from "@spleenteo/datocms-dev-bar/server";
 const preview = readDevPreview(request, { isDev: import.meta.env.DEV });
 // { mode: "draft" | "published", visualEditing: boolean }
 
-const options = preview.cdaOptions({ baseEditingUrl: "https://mio-progetto.admin.datocms.com" });
-// per @datocms/cda-client: { includeDrafts, contentLink?, baseEditingUrl? }
+const options = preview.cdaOptions({ baseEditingUrl: "https://my-project.admin.datocms.com" });
+// for @datocms/cda-client: { includeDrafts, contentLink?, baseEditingUrl? }
 
-const headers = preview.headers({ baseEditingUrl: "https://mio-progetto.admin.datocms.com" });
-// per fetch grezzo: { "X-Include-Drafts": "true", "X-Visual-Editing": "v1", ... }
+const headers = preview.headers({ baseEditingUrl: "https://my-project.admin.datocms.com" });
+// for raw fetch: { "X-Include-Drafts": "true", "X-Visual-Editing": "v1", ... }
 ```
 
-- **Input**: un `Request`, oppure un oggetto `{ cookie?: string | null; url?: string | URL; searchParams?: URLSearchParams | Record<string, string | string[] | undefined> }` per i framework che danno cookie e URL separati (Next.js App Router).
-- **Ordine di lettura**: parametro URL, poi cookie, poi default.
-- **Fuori sviluppo** (`isDev` assente o `false`): `{ mode: "published", visualEditing: false }`, sempre.
-- **Non lancia mai errori**: valori sconosciuti diventano default.
+- **Input**: a `Request`, or an object `{ cookie?: string | null; url?: string | URL; searchParams?: URLSearchParams | Record<string, string | string[] | undefined> }` for frameworks that give cookies and URL separately (Next.js App Router).
+- **Reading order**: URL parameter, then cookie, then default.
+- **Outside development** (`isDev` missing or `false`): `{ mode: "published", visualEditing: false }`, always.
+- **Never throws**: unknown values become defaults.
 
-### Ricette nella documentazione
+### Recipes in the documentation
 
-Una pagina per framework, con lo snippet minimo:
+One page per framework, with the minimal snippet:
 
-- **Astro**: `readDevPreview(Astro.request, { isDev: import.meta.env.DEV })` nel punto dove si fa la query; widget nel layout dentro `{import.meta.env.DEV && ...}`.
-- **Next.js App Router**: `readDevPreview({ cookie: (await headers()).get("cookie"), searchParams: await searchParams }, { isDev: process.env.NODE_ENV === "development" })` nella pagina, che riceve `searchParams` come prop. I layout non li ricevono: lì vale solo il cookie. Widget in un Client Component caricato solo in sviluppo.
+- **Astro**: `readDevPreview(Astro.request, { isDev: import.meta.env.DEV })` where the query runs; widget in the layout inside `{import.meta.env.DEV && ...}`.
+- **Next.js App Router**: `readDevPreview({ cookie: (await headers()).get("cookie"), searchParams: await searchParams }, { isDev: process.env.NODE_ENV === "development" })` in the page, which receives `searchParams` as a prop. Layouts do not receive them: there only the cookie counts. Widget in a Client Component loaded in development only.
 - **Nuxt**: `readDevPreview(toWebRequest(event), { isDev: import.meta.dev })`.
 - **SvelteKit**: `readDevPreview(event.request, { isDev: dev })`.
-- **Contratto a mano**: tabella dei cookie e degli header, per qualsiasi altro stack.
+- **Contract by hand**: table of cookies and headers, for any other stack.
 
-Nota comune: in draft la risposta non va messa in cache. La documentazione lo dice; l'helper non tocca la cache del framework.
+Common note: draft responses must not be cached. The documentation says so; the helper does not touch the framework's cache.
 
-## 4. Distribuzione
+## 4. Distribution
 
-- Un solo pacchetto npm, `@spleenteo/datocms-dev-bar`, con due entry point:
-  - `@spleenteo/datocms-dev-bar` registra l'elemento (effetto collaterale, `customElements.define` protetto contro la doppia registrazione);
-  - `@spleenteo/datocms-dev-bar/server` esporta l'helper.
-- Un file IIFE per il CDN (jsDelivr, unpkg), per l'uso con un `<script>` in HTML puro.
-- Sorgenti in TypeScript, build con esbuild, tipi `.d.ts` inclusi. Nessuna dipendenza di runtime.
-- Le ricette consigliano di caricare il widget solo in sviluppo (import condizionale o dinamico), così non finisce nel bundle di produzione. Il controllo sull'host resta come seconda cintura.
-- Licenza MIT, repository pubblico.
+- One npm package, `@spleenteo/datocms-dev-bar`, with two entry points:
+  - `@spleenteo/datocms-dev-bar` registers the element (side effect, `customElements.define` guarded against double registration);
+  - `@spleenteo/datocms-dev-bar/server` exports the helper.
+- An IIFE file for the CDN (jsDelivr, unpkg), for use with a `<script>` in plain HTML.
+- TypeScript sources, built with esbuild, `.d.ts` types included. No runtime dependencies.
+- The recipes recommend loading the widget in development only (conditional or dynamic import), so it does not end up in the production bundle. The host check stays as a second belt.
+- MIT licence, public repository.
 
-### Primo progetto che lo usa
+### First project using it
 
-gestart-astro: la barra di `src/components/DraftModeBanner` in sviluppo lascia il posto al pacchetto. In produzione resta la barra attuale, con il cookie firmato, che è fuori perimetro.
+gestart-astro: in development, the bar in `src/components/DraftModeBanner` gives way to the package. In production the current bar stays, with the signed cookie, which is out of scope.
 
-## 5. Casi limite ed errori
+## 5. Edge cases and errors
 
-| Caso | Comportamento |
+| Case | Behaviour |
 |---|---|
-| Host non ammesso | l'elemento non disegna niente; un solo `console.info` che spiega perché |
-| Cookie bloccati | la barra mostra "cookies blocked": gli interruttori non funzionerebbero |
-| Due elementi nella pagina | il secondo non si disegna |
-| Valore di cookie sconosciuto | trattato come default |
-| `sessionStorage` non disponibile | la barra parte chiusa a ogni pagina, il resto funziona |
-| Sito che ignora il contratto | gli interruttori cambiano i cookie ma la pagina resta uguale. La documentazione lo spiega in apertura |
+| Host not allowed | the element draws nothing; a single `console.info` explains why |
+| Cookies blocked | the bar shows "cookies blocked": the switches would not work |
+| Two elements on the page | the second one does not draw |
+| Unknown cookie value | treated as the default |
+| `sessionStorage` unavailable | the bar starts closed on every page, the rest works |
+| Site that ignores the contract | the switches change the cookies but the page stays the same. The documentation explains this at the top |
 
-## 6. Verifica
+## 6. Verification
 
-### Dove si vede la barra mentre la si sviluppa
+### Where you see the bar while developing it
 
-Tre livelli, dal più rapido al più realistico:
+Three levels, from quickest to most realistic:
 
-1. **Playground nel repo**: `npm run dev` avvia un piccolo server Node su `http://localhost:5173` che ricompila il widget a ogni salvataggio (esbuild in watch) e serve una pagina di prova. La pagina è generata lato server con l'helper vero, e mostra in chiaro cosa ha deciso: "server: draft, visual editing on". Il contenuto è finto, con testi che portano metadati Content Link simulati, così si vedono anche gli overlay accendersi e spegnersi. Non serve un progetto DatoCMS.
-2. **Playground con dati veri**: se in `.env` c'è un token CDA, la stessa pagina interroga un progetto DatoCMS reale invece dei dati finti.
-3. **In un sito vero**: il pacchetto si collega a gestart-astro con una dipendenza locale (`"@spleenteo/datocms-dev-bar": "file:../datocms-dev-bar"`) e si vede su `localhost:4321`, al posto della barra attuale.
+1. **Playground in the repo**: `npm run dev` starts a small Node server on `http://localhost:5173` that rebuilds the widget on every save (esbuild in watch mode) and serves a test page. The page is rendered on the server with the real helper, and states plainly what it decided: "server: draft, visual editing on". The content is fake, with texts carrying simulated Content Link metadata, so the overlays can be seen turning on and off. No DatoCMS project needed.
+2. **Playground with real data**: with a CDA token in `.env`, the same page queries a real DatoCMS project instead of the fake data.
+3. **In a real site**: the package is linked to gestart-astro with a local dependency (`"@spleenteo/datocms-dev-bar": "file:../datocms-dev-bar"`) and shows on `localhost:4321`, in place of the current bar.
 
-### Test
+### Tests
 
-- **Helper**: test unitari con Vitest. Sono funzioni pure, quindi i test costano poco: ordine di lettura, default, `isDev` falso, valori sconosciuti, i tre formati di input.
-- **Web component**: test con Playwright su una pagina HTML statica servita in locale: apertura e chiusura, scrittura dei cookie, parametri URL tolti dall'URL, scorciatoie, controllo dell'host.
-- **Esempi**: una cartella `examples/` con HTML puro e Astro, usati anche come prova manuale prima di ogni rilascio. Il playground del punto 1 è l'esempio HTML.
+- **Helper**: unit tests with Vitest. They are pure functions, so tests are cheap: reading order, defaults, `isDev` false, unknown values, the three input formats.
+- **Web component**: Playwright tests on a static HTML page served locally: opening and closing, cookie writing, URL parameters removed from the URL, shortcuts, host check.
+- **Examples**: an `examples/` folder with plain HTML and Astro, also used as a manual check before every release. The playground in point 1 is the HTML example.
 
-## 7. Direzioni future (non in v1)
+## 7. Future directions (not in v1)
 
-La v1 non deve chiudere queste strade.
+v1 must not close these roads.
 
-- **Raggi X**: con il visual editing acceso, ogni testo porta nascosto il link all'editor DatoCMS (ID del modello, ID del record, percorso del campo). Un pannello del widget può leggerlo ed evidenziare record e blocchi. Per mostrare i *nomi* di modelli e blocchi serve un token con accesso allo schema, oppure `_modelApiKey` nelle query. La barra della v1 prevede un punto dove aggiungere un terzo gruppo, senza essere riscritta.
-- **Estensione per il browser**: lo stesso web component inserito su qualsiasi localhost, per chi ha l'helper nel progetto e non vuole aggiungere lo script. Per i raggi X l'estensione ha un vantaggio: legge i metadati senza passare dal server.
-- **Produzione per gli editor**: cookie firmato e gettone di Web Previews, come in gestart-astro. Richiede codice lato server per ogni framework e va progettata a parte.
+- **X-ray**: with visual editing on, every text carries a hidden link to the DatoCMS editor (model ID, record ID, field path). A panel of the widget can read it and highlight records and blocks. Showing the *names* of models and blocks needs a token with schema access, or `_modelApiKey` in the queries. The v1 bar leaves room for a third group, without being rewritten.
+- **Browser extension**: the same web component injected on any localhost, for people who have the helper in the project and do not want to add the script. For X-ray the extension has an advantage: it reads the metadata without going through the server.
+- **Production for editors**: signed cookie and Web Previews token, as in gestart-astro. It needs server code for each framework and has to be designed separately.
 
-## Decisioni
+## Decisions
 
-- Colore della linguetta: `#FF593D`.
-- Pacchetto npm con scope personale: `@spleenteo/datocms-dev-bar`.
-- Scorciatoie `Alt+Shift+D/V/B` attive di default, disattivabili con `shortcuts="off"`.
+- Tab colour: `#FF593D`.
+- npm package with a personal scope: `@spleenteo/datocms-dev-bar`.
+- `Alt+Shift+D/V/B` shortcuts on by default, can be turned off with `shortcuts="off"`.
