@@ -3,6 +3,26 @@ const ENVIRONMENT = process.env.DATOCMS_ENVIRONMENT || "";
 
 const PAGES = { "/": "Home", "/other": "Another page", "/double": "Two bars", "/no-reload": "No reload" };
 
+// Stand-ins for what a site would hand to the Advanced panel (the real thing is built from CDA response headers).
+const SAMPLE_REPORTS = [
+  { operation: "HomeQuery", environment: "main", timingsTotalMs: 35, complexity: 102, maxComplexity: 21294900, queryLength: 192, queryLengthLimit: 12000, cache: "hit", cacheTags: "active", query: "query HomeQuery {\n  homePage {\n    title\n  }\n}", variables: null },
+  { operation: "MenuQuery", environment: "main", timingsTotalMs: 612, complexity: 1500000, maxComplexity: 21294900, queryLength: 80, queryLengthLimit: 12000, cache: "miss", cacheTags: "active", query: "query MenuQuery($locale: SiteLocale) {\n  allMenuItems(locale: $locale) {\n    label\n  }\n}", variables: '{\n  "locale": "it"\n}' },
+];
+
+// Stand-in for what a site reads from the Content Management API with a read-only token.
+const SAMPLE_PROJECT = {
+  environments: [{ name: "main", primary: true }],
+  records: [
+    { id: "1", model: "Home page", modelApiKey: "home_page", title: null, block: false, status: "published", updatedAt: "2026-10-01T10:00:00Z", editUrl: "https://example.admin.datocms.com/editor/item_types/1/items/1/edit" },
+    { id: "2", model: "Menu item", modelApiKey: "menu_item", title: "Pricing", block: false, status: "updated", updatedAt: "2026-10-04T10:00:00Z", editUrl: "https://example.admin.datocms.com/editor/item_types/2/items/2/edit", anchor: { recordId: "2", fieldPath: "" } },
+    { id: "4", model: "Menu item", modelApiKey: "menu_item", title: "Blog", block: false, status: "published", updatedAt: "2026-09-20T10:00:00Z", editUrl: "https://example.admin.datocms.com/editor/item_types/2/items/4/edit" },
+    { id: "3", model: "Button", modelApiKey: "button", title: "Start free trial", block: true, status: "published", updatedAt: null, editUrl: null },
+  ],
+  moreRecords: 0,
+  blocks: 1,
+  error: null,
+};
+
 const RECORDS = [
   { published: "Welcome to the playground", draft: "Welcome to the playground (edited, not yet published)" },
   { published: "This paragraph is published.", draft: "This paragraph has changes that only drafts show." },
@@ -49,9 +69,11 @@ export async function renderPage(pathname, preview) {
   <h2>CDA headers the helper would send</h2>
   <pre id="headers">${escapeHtml(JSON.stringify(headers, null, 2))}</pre>
   <p><input id="search" placeholder="Type here: shortcuts are ignored in fields"></p>
+  <p id="linked" data-datocms-content-link-url="https://example.admin.datocms.com/editor/item_types/2/items/2/edit">Menu item content (linked to record 2)</p>
   <h2>Change events</h2>
   <pre id="events"></pre>
   ${await realData(preview)}
+  <script type="application/json" data-datocms-dev-bar>${JSON.stringify({ queries: SAMPLE_REPORTS, project: SAMPLE_PROJECT })}</script>
   ${`<datocms-dev-bar ${attrs}></datocms-dev-bar>`.repeat(bars)}
   <script>
     document.addEventListener("datocms-dev-bar:change", (event) => {

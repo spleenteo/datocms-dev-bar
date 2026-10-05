@@ -80,13 +80,117 @@ test("only the first bar on a page renders", async ({ page }) => {
 test("the project link opens DatoCMS in a new window", async ({ page }) => {
   await page.goto("/");
   await tab(page).click();
+  await control(page, ".advanced").click();
   const link = control(page, "a.project");
   await expect(link).toHaveAttribute("href", /admin\.datocms\.com/);
   await expect(link).toHaveAttribute("target", "_blank");
+  const docs = control(page, "a.docs");
+  await expect(docs).toHaveAttribute("href", "https://www.datocms.com/docs");
+  await expect(docs).toHaveAttribute("target", "_blank");
 });
 
 test("stays hidden on a non-local host", async ({ page }) => {
   await page.goto("http://devbar.example:5173/");
   await expect(serverState(page)).toBeVisible();
   await expect(page.locator("datocms-dev-bar .tab")).toHaveCount(0);
+});
+
+test("General shows the environment, how the queries performed, and a line per query", async ({ page }) => {
+  await page.goto("/");
+  await tab(page).click();
+  const panel = control(page, ".panel");
+  await expect(panel).toBeHidden();
+  await control(page, ".advanced").click();
+  await expect(panel).toBeVisible();
+  const general = control(page, "#pane-general");
+  await expect(general.locator("[data-row=environment]")).toHaveText("main");
+  await expect(general.locator("[data-row=time]")).toHaveText("647 ms across 2 queries");
+  await expect(general.locator("[data-row=complexity]")).toHaveText("1,500,000 of 21,294,900 (highest)");
+  await expect(general.locator("[data-row=cache]")).toHaveText("Partly, 1 of 2 from cache");
+  await expect(general.locator("[data-row=cacheTags]")).toHaveText("Active on all 2");
+  await expect(general.locator(".rows .i")).toHaveCount(6);
+  await general.locator(".i").first().hover();
+  await expect(control(page, "#tip-environment")).toBeVisible();
+  const lines = general.locator(".query-lines li");
+  await expect(lines).toHaveCount(2);
+  await expect(lines.nth(1).locator(".flag")).toHaveText(["slow", "heavy 7%"]);
+  await lines.nth(1).locator(".i").hover();
+  await expect(lines.nth(1).locator(".tip")).toContainText("complexity");
+  await lines.nth(1).locator(".i").click();
+  await expect(control(page, "[data-tab=general]")).toHaveAttribute("aria-selected", "true");
+  await lines.nth(1).locator(".q-name").click();
+  await expect(control(page, "[data-tab=queries]")).toHaveAttribute("aria-selected", "true");
+});
+
+test("Queries shows each query with its text and variables", async ({ page }) => {
+  await page.goto("/");
+  await tab(page).click();
+  await control(page, ".advanced").click();
+  await control(page, "[data-tab=queries]").click();
+  await expect(control(page, "[data-tab=queries] .tab-count")).toHaveText("2");
+  const items = control(page, ".queries > li");
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0).locator(".flag")).toHaveCount(0);
+  await expect(items.nth(1).locator("pre").first()).toBeVisible();
+  await expect(items.nth(1).locator("pre").first()).toContainText("query MenuQuery");
+  await expect(items.nth(1).locator("pre").nth(1)).toContainText('"locale": "it"');
+});
+
+test("records are grouped by model and can be filtered", async ({ page }) => {
+  await page.goto("/");
+  await tab(page).click();
+  await control(page, ".advanced").click();
+  await control(page, "[data-tab=records]").click();
+  const groups = control(page, ".r-group");
+  await expect(groups).toHaveCount(3);
+  await expect(control(page, ".r-group .r-model")).toHaveText(["Home page", "Menu item", "Button"]);
+  await expect(control(page, ".records-note")).toHaveText("3 records, 1 block.");
+  const menu = groups.nth(1);
+  await expect(menu.locator(".r-count")).toHaveText("×2");
+  await expect(menu.locator("summary .r-dot")).toHaveAttribute("aria-label", "1 not published");
+  await expect(menu.locator(".r-title")).toHaveText(["Pricing", "Blog"]);
+  const edit = groups.nth(0).locator(".r-edit");
+  await expect(edit).toHaveAttribute("aria-label", "Edit in DatoCMS (opens in a new window)");
+  await expect(edit.locator("svg")).toHaveCount(1);
+  await expect(edit).toHaveAttribute("target", "_blank");
+  await control(page, ".records-filter").fill("unpublished");
+  await expect(control(page, ".r-group:visible")).toHaveCount(1);
+  await expect(menu.locator("details")).toHaveAttribute("open", "");
+  await expect(menu.locator(".r-items li:visible")).toHaveCount(1);
+  await expect(control(page, ".records-note")).toHaveText("1 of 4 shown.");
+  await control(page, ".records-filter").fill("block");
+  await expect(control(page, ".r-group:visible .r-model")).toHaveText("Button");
+  await control(page, ".records-filter").fill("");
+  await expect(control(page, ".r-group:visible")).toHaveCount(3);
+});
+
+test("a record that Content Link ties to the page scrolls there on click", async ({ page }) => {
+  await page.goto("/");
+  await tab(page).click();
+  await control(page, ".advanced").click();
+  await control(page, "[data-tab=records]").click();
+  await control(page, ".records-filter").fill("pricing");
+  const record = control(page, ".r-items li:visible .r-main");
+  await expect(record).toHaveClass(/r-findable/);
+  await record.click();
+  await expect(page.locator("#linked")).toBeInViewport();
+  await control(page, ".records-filter").fill("blog");
+  await expect(control(page, ".r-items li:visible .r-main")).not.toHaveClass(/r-findable/);
+});
+
+test("the panel has four tabs, remembers the open one and moves with the arrow keys", async ({ page }) => {
+  await page.goto("/");
+  await tab(page).click();
+  await control(page, ".advanced").click();
+  await expect(control(page, "[data-tab=general]")).toHaveAttribute("aria-selected", "true");
+  await expect(control(page, "#pane-general")).toBeVisible();
+  await expect(control(page, "#pane-records")).toBeHidden();
+  await control(page, "[data-tab=help]").click();
+  await expect(control(page, "#pane-help")).toContainText("Alt");
+  await page.reload();
+  await expect(control(page, "[data-tab=help]")).toHaveAttribute("aria-selected", "true");
+  await control(page, "[data-tab=help]").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(control(page, "[data-tab=general]")).toHaveAttribute("aria-selected", "true");
+  await expect(control(page, "[data-tab=records] .tab-count")).toHaveText("4");
 });
