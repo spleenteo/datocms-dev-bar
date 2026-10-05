@@ -1,4 +1,4 @@
-// What each row of the Advanced panel means, shown behind its "i" icon.
+// What each row of the X-Ray panel means, shown behind its "i" icon.
 const ROWS = [
   {
     key: "environment",
@@ -50,7 +50,7 @@ const TABS = [
   { key: "help", label: "Help" },
 ];
 
-// The bar holds what you click; the Advanced panel above it holds what you read.
+// The bar holds what you click; the X-Ray panel above it holds what you read.
 export const TEMPLATE = `
 <div class="wrap" data-position="left" data-mode="draft">
   <button type="button" class="tab" aria-label="DatoCMS dev bar" aria-expanded="false" aria-controls="bar">
@@ -73,10 +73,10 @@ export const TEMPLATE = `
       <span class="info"><button type="button" class="i" aria-label="About outlines" aria-describedby="tip-outlines">i</button><span class="tip" role="tooltip" id="tip-outlines">Outlines mark what you can edit in DatoCMS. Hold Alt (Option on a Mac) to show them, or to hide them if your site keeps them on: the bar shows their state once it changes. Turning Visual editing off also removes the invisible stega characters Content Link adds to texts, which can get in the way while you work on the design (text width, line breaks, copy and paste).</span></span>
     </span>
     <span class="sep" aria-hidden="true"></span>
-    <button type="button" class="advanced" aria-expanded="false" aria-controls="advanced">Advanced</button>
+    <button type="button" class="advanced" aria-expanded="false" aria-controls="advanced">X-Ray</button>
     <span class="warning" role="status" hidden>cookies blocked</span>
   </div>
-  <section class="panel" id="advanced" aria-label="Advanced">
+  <section class="panel" id="advanced" aria-label="X-Ray">
     <div class="pane" role="tabpanel" id="pane-general" data-pane="general" aria-labelledby="tab-general">
     <dl class="rows">${ROWS.map(row).join("")}
     </dl>
@@ -127,7 +127,7 @@ export const TEMPLATE = `
       <p class="help-note"><a class="readme" href="https://github.com/spleenteo/datocms-dev-bar#readme" target="_blank" rel="noopener">Full guide in the README <span aria-hidden="true">↗</span><span class="sr-only">(opens in a new window)</span></a></p>
     </div>
     <!-- Tabs at the bottom: the panel grows upwards, so they stay under the pointer when switching. -->
-    <div class="tabs" role="tablist" aria-label="Advanced">
+    <div class="tabs" role="tablist" aria-label="X-Ray">
       ${TABS.map(({ key, label }) => `<button type="button" role="tab" class="tab-button" id="tab-${key}" data-tab="${key}" aria-controls="pane-${key}" aria-selected="false" tabindex="-1">${label}<span class="tab-count" data-count="${key}"></span></button>`).join("")}
     </div>
   </section>

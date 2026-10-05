@@ -1,5 +1,5 @@
 /**
- * Project data for the Advanced panel, read on the server from the Content Management API
+ * Project data for the X-Ray panel, read on the server from the Content Management API
  * with a read-only token: which environments exist and which records the page shows.
  * Plain fetch, no dependencies. The token never reaches the browser.
  */

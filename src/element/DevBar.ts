@@ -241,7 +241,7 @@ export class DevBar extends Base {
     this.update();
   }
 
-  /** Fills the Advanced panel from the reports the site wrote into the page. Values go in as text, never as HTML. */
+  /** Fills the X-Ray panel from the reports the site wrote into the page. Values go in as text, never as HTML. */
   private updatePanel() {
     const root = this.root!;
     const summary = summarizeReports(this.reports);

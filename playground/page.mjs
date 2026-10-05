@@ -3,7 +3,10 @@ const ENVIRONMENT = process.env.DATOCMS_ENVIRONMENT || "";
 
 const PAGES = { "/": "Home", "/other": "Another page", "/double": "Two bars", "/no-reload": "No reload", "/remote": "Data from a URL" };
 
-// Stand-ins for what a site would hand to the Advanced panel (the real thing is built from CDA response headers).
+/** What /dev-bar-data answers: the same data the inline script carries. */
+export const remoteData = () => JSON.stringify({ queries: SAMPLE_REPORTS.slice(0, 1), project: SAMPLE_PROJECT });
+
+// Stand-ins for what a site would hand to the X-Ray panel (the real thing is built from CDA response headers).
 const SAMPLE_REPORTS = [
   { operation: "HomeQuery", environment: "main", timingsTotalMs: 35, complexity: 102, maxComplexity: 21294900, queryLength: 192, queryLengthLimit: 12000, cache: "hit", cacheTags: "active", responseBytes: 3200, query: "query HomeQuery {\n  homePage {\n    title\n  }\n}", variables: null },
   { operation: "MenuQuery", environment: "main", timingsTotalMs: 612, complexity: 1500000, maxComplexity: 21294900, queryLength: 80, queryLengthLimit: 12000, cache: "miss", cacheTags: "active", responseBytes: 260000, query: "query MenuQuery($locale: SiteLocale) {\n  allMenuItems(locale: $locale) {\n    label\n  }\n}", variables: '{\n  "locale": "it"\n}' },

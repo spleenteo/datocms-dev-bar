@@ -1,6 +1,6 @@
 # @spleenteo/datocms-dev-bar
 
-A dev bar for DatoCMS sites, for local development only. One click (or `Alt+Shift+D`) switches the page between draft and published content; another (`Alt+Shift+V`) turns visual editing on and off. An **Advanced** panel shows what DatoCMS said about the page: the environment, how the queries performed, their text, and the records and blocks the page shows. Works with any framework, has no dependencies, and does nothing outside localhost.
+A dev bar for DatoCMS sites, for local development only. One click (or `Alt+Shift+D`) switches the page between draft and published content; another (`Alt+Shift+V`) turns visual editing on and off. An **X-Ray** panel shows what DatoCMS said about the page: the environment, how the queries performed, their text, and the records and blocks the page shows. Works with any framework, has no dependencies, and does nothing outside localhost.
 
 ## What you get
 
@@ -10,9 +10,9 @@ A dev bar for DatoCMS sites, for local development only. One click (or `Alt+Shif
 |---|---|
 | Viewing: draft / published | which version of the content the page reads |
 | Visual editing: on / off | Content Link overlays (drafts only) |
-| Advanced | opens the panel |
+| X-Ray | opens the panel |
 
-**The Advanced panel** holds what you read, in four tabs at its bottom edge:
+**The X-Ray panel** holds what you read, in four tabs at its bottom edge:
 
 | Tab | What it shows | Needs |
 |---|---|---|
@@ -95,7 +95,7 @@ The bar shows only on `localhost`, `127.0.0.1`, `[::1]` and hosts ending in `.lo
 
 Event: `datocms-dev-bar:change`, cancelable, `detail: { mode, visualEditing }`. Cancel it to refresh your own way (for example `router.refresh()` in Next.js).
 
-## 3. The Advanced panel (optional)
+## 3. The X-Ray panel (optional)
 
 The bar runs in the browser and the queries run on your server, so the server hands over what it knows. Write it into the page once, in development only:
 
@@ -216,7 +216,7 @@ const preview = readDevPreview(Astro.request, { isDev: import.meta.env.DEV });
 
 Pages that read cookies must be rendered on demand (`output: "server"` or `export const prerender = false`).
 
-With the Advanced panel, collect per request in the function that runs your queries, and hand over in the component that renders the bar (it must render after the page's queries, for example at the end of the layout):
+With the X-Ray panel, collect per request in the function that runs your queries, and hand over in the component that renders the bar (it must render after the page's queries, for example at the end of the layout):
 
 ```ts
 // src/lib/devBar.ts
@@ -342,7 +342,7 @@ npm test           # unit tests
 npm run test:e2e   # browser tests
 ```
 
-Copy `.env.example` to `.env` and add a CDA token to see real data in the playground. The playground also carries sample query reports and project data, so every tab of the Advanced panel has something to show.
+Copy `.env.example` to `.env` and add a CDA token to see real data in the playground. The playground also carries sample query reports and project data, so every tab of the X-Ray panel has something to show.
 
 ## Licence
 

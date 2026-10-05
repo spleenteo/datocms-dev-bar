@@ -4,7 +4,7 @@ Date: 2026-10-02
 Status: approved on 2026-10-02.
 Package: `@spleenteo/datocms-dev-bar`.
 
-> **Later changes.** The X-ray direction in section 7 shipped as the **Advanced panel** (tabs General, Records, Queries, Help), with an optional read-only Content Management API token on the server. The size target moved from 6 KB to 16 KB to make room for it. The README describes the current behaviour; this document records the original design.
+> **Later changes.** The X-ray direction in section 7 shipped as the **X-Ray panel** (tabs General, Records, Queries, Help), with an optional read-only Content Management API token on the server. The size target moved from 6 KB to 16 KB to make room for it. The README describes the current behaviour; this document records the original design.
 
 ## Goal
 
