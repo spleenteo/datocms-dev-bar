@@ -2,7 +2,7 @@ import { context } from "esbuild";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { configs } from "../build.mjs";
-import { renderPage } from "./page.mjs";
+import { remoteData, renderPage } from "./page.mjs";
 
 try {
   process.loadEnvFile();
@@ -23,6 +23,10 @@ for (const config of configs) {
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (url.pathname === "/dev-bar-data") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      return res.end(remoteData());
+    }
     if (url.pathname.startsWith("/dist/")) {
       const body = await readFile(new URL(`..${url.pathname}`, import.meta.url));
       const type = TYPES[url.pathname.slice(url.pathname.lastIndexOf("."))] ?? "application/octet-stream";

@@ -1,7 +1,7 @@
 const BASE_EDITING_URL = process.env.DATOCMS_BASE_EDITING_URL || "https://example.admin.datocms.com";
 const ENVIRONMENT = process.env.DATOCMS_ENVIRONMENT || "";
 
-const PAGES = { "/": "Home", "/other": "Another page", "/double": "Two bars", "/no-reload": "No reload" };
+const PAGES = { "/": "Home", "/other": "Another page", "/double": "Two bars", "/no-reload": "No reload", "/remote": "Data from a URL" };
 
 // Stand-ins for what a site would hand to the Advanced panel (the real thing is built from CDA response headers).
 const SAMPLE_REPORTS = [
@@ -44,6 +44,7 @@ export async function renderPage(pathname, preview) {
     `project-url="${escapeHtml(BASE_EDITING_URL)}"`,
     ENVIRONMENT ? `environment="${escapeHtml(ENVIRONMENT)}"` : "",
     pathname === "/no-reload" ? 'reload="false"' : "",
+    pathname === "/remote" ? 'data-url="/dev-bar-data"' : "",
   ].join(" ");
   const bars = pathname === "/double" ? 2 : 1;
   const headers = preview.headers({ baseEditingUrl: BASE_EDITING_URL });
@@ -74,7 +75,7 @@ export async function renderPage(pathname, preview) {
   <h2>Change events</h2>
   <pre id="events"></pre>
   ${await realData(preview)}
-  <script type="application/json" data-datocms-dev-bar>${JSON.stringify({ queries: SAMPLE_REPORTS, project: SAMPLE_PROJECT })}</script>
+  ${pathname === "/remote" ? "" : `<script type="application/json" data-datocms-dev-bar>${JSON.stringify({ queries: SAMPLE_REPORTS, project: SAMPLE_PROJECT })}</script>`}
   ${`<datocms-dev-bar ${attrs}></datocms-dev-bar>`.repeat(bars)}
   <script>
     document.addEventListener("datocms-dev-bar:change", (event) => {

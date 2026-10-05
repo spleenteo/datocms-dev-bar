@@ -43,7 +43,7 @@ let activeInstance: DevBar | null = null;
 let refusalLogged = false;
 
 export class DevBar extends Base {
-  static observedAttributes = ["project-url", "environment", "environment-primary", "position"];
+  static observedAttributes = ["project-url", "environment", "environment-primary", "position", "data-url"];
 
   private state: DevPreviewState = { ...DEFAULT_STATE };
   private open = false;
@@ -81,6 +81,7 @@ export class DevBar extends Base {
     this.tab = readTab();
     ({ queries: this.reports, project: this.project } = readData());
     this.render();
+    void this.loadRemoteData();
     if (this.getAttribute("shortcuts") !== "off") window.addEventListener("keydown", this.onKeydown);
   }
 
@@ -89,8 +90,29 @@ export class DevBar extends Base {
     if (activeInstance === this) activeInstance = null;
   }
 
-  attributeChangedCallback() {
-    if (this.root) this.update();
+  attributeChangedCallback(name: string, previous: string | null, next: string | null) {
+    if (!this.root) return;
+    if (name === "data-url" && previous !== next) void this.loadRemoteData();
+    else this.update();
+  }
+
+  /**
+   * With data-url the bar asks the site for its data after the page has loaded, instead of reading
+   * it from the page: for frameworks that stream the page while the queries still run (Next.js).
+   * The response has the same shape as the inline script.
+   */
+  private async loadRemoteData() {
+    const url = this.getAttribute("data-url");
+    if (!url) return;
+    try {
+      const response = await fetch(url, { cache: "no-store", credentials: "same-origin" });
+      if (!response.ok) throw new Error(`answered ${response.status}`);
+      if (url !== this.getAttribute("data-url")) return; // a newer page asked in the meantime
+      ({ queries: this.reports, project: this.project } = parseDevBarData(await response.text()));
+      this.update();
+    } catch (error) {
+      console.info(`[datocms-dev-bar] could not load ${url}: ${error instanceof Error ? error.message : error}`);
+    }
   }
 
   /** ?datocms= and ?datocms-visual= become cookies and leave the address bar. The server already used them. */
