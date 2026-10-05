@@ -49,6 +49,10 @@ export type FetchProjectInfoOptions = {
 
 const CMA = "https://site-api.datocms.com";
 const TTL_MS = 60_000;
+/** Title fields belong to the schema, which changes rarely. */
+const FIELDS_TTL_MS = 10 * 60_000;
+/** The most records the CMA returns per request when blocks come nested. */
+const NESTED_PAGE = 30;
 
 type JsonApi = { data?: unknown; errors?: { attributes?: { code?: string } }[] };
 type Cached<T> = { at: number; value: T };
@@ -67,18 +71,25 @@ async function cma(path: string, options: FetchProjectInfoOptions): Promise<unkn
   const response = await (options.fetch ?? fetch)(`${CMA}${path}`, { headers });
   const body = (await response.json().catch(() => ({}))) as JsonApi;
   if (!response.ok) {
-    const code = body.errors?.[0]?.attributes?.code;
+    // DatoCMS sends errors as `data: [{ type: "api_error", attributes: { code } }]`
+    const first = (Array.isArray(body.data) ? body.data[0] : undefined) as { attributes?: { code?: string } } | undefined;
+    const code = body.errors?.[0]?.attributes?.code ?? first?.attributes?.code;
     throw new Error(`CMA ${path.split("?")[0]} answered ${response.status}${code ? ` (${code})` : ""}`);
   }
   return Array.isArray(body.data) ? body.data : [];
 }
 
-async function cached<T>(cache: Map<string, Cached<T>>, key: string, load: () => Promise<T>): Promise<T> {
+async function cached<T>(cache: Map<string, Cached<T>>, key: string, load: () => Promise<T>, ttl = TTL_MS): Promise<T> {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
+  if (hit && Date.now() - hit.at < ttl) return hit.value;
   const value = await load();
   cache.set(key, { at: Date.now(), value });
   return value;
+}
+
+/** Runs `task` on every item, at most `size` at a time. */
+async function inBatches<T>(items: T[], size: number, task: (item: T) => Promise<void>): Promise<void> {
+  for (let start = 0; start < items.length; start += size) await Promise.all(items.slice(start, start + size).map(task));
 }
 
 type Resource = {
@@ -152,21 +163,30 @@ export async function fetchProjectInfo(options: FetchProjectInfoOptions): Promis
     // API keys of the title fields, only for the models on this page.
     const typeIds = new Set(items.map((item) => item.relationships?.item_type?.data?.id).filter((id): id is string => !!id));
     const titleKeys = new Map<string, string>();
-    await Promise.all(
-      [...typeIds].map(async (typeId) => {
-        const fieldId = models.get(typeId)?.titleFieldId;
-        if (!fieldId) return;
-        const fields = await cached(fieldCache, `${key}:${typeId}`, async () => {
-          const map = new Map<string, string>();
-          for (const field of (await cma(`/item-types/${encodeURIComponent(typeId)}/fields`, options)) as Resource[]) {
-            map.set(String(field.id), String(field.attributes?.api_key ?? ""));
-          }
-          return map;
-        });
+    // One call per model, four at a time to stay under the CMA rate limit. A title field that
+    // cannot be read leaves its records without a title, instead of failing the whole panel.
+    await inBatches([...typeIds], 4, async (typeId) => {
+      const fieldId = models.get(typeId)?.titleFieldId;
+      if (!fieldId) return;
+      try {
+        const fields = await cached(
+          fieldCache,
+          `${key}:${typeId}`,
+          async () => {
+            const map = new Map<string, string>();
+            for (const field of (await cma(`/item-types/${encodeURIComponent(typeId)}/fields`, options)) as Resource[]) {
+              map.set(String(field.id), String(field.attributes?.api_key ?? ""));
+            }
+            return map;
+          },
+          FIELDS_TTL_MS,
+        );
         const apiKey = fields.get(fieldId);
         if (apiKey) titleKeys.set(typeId, apiKey);
-      }),
-    );
+      } catch {
+        // no title for this model
+      }
+    });
     const primary = info.environments.find((env) => env.primary)?.name;
     const base = options.projectUrl?.trim().replace(/\/+$/, "");
     const envPath = options.environment && options.environment !== primary ? `/environments/${encodeURIComponent(options.environment)}` : "";
