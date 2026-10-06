@@ -1,5 +1,7 @@
 # @spleenteo/datocms-dev-bar
 
+[Site](https://spleenteo.github.io/datocms-dev-bar/) · [npm](https://www.npmjs.com/package/@spleenteo/datocms-dev-bar)
+
 A dev bar for DatoCMS sites, for local development only. One click (or `Alt+Shift+D`) switches the page between draft and published content; another (`Alt+Shift+V`) turns visual editing on and off. An **X-Ray** panel shows what DatoCMS said about the page: the environment, how the queries performed, their text, and the records and blocks the page shows.
 
 It loads into your development server and needs no change to your code: it watches the queries your server sends to DatoCMS, applies the switches to them, and adds the bar to every page. Any framework that runs its dev server on Node. No dependencies. Nothing of it reaches your build.

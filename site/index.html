@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>datocms-dev-bar</title>
+  <meta name="description" content="A dev bar for DatoCMS sites: draft, published, visual editing and an X-Ray of the page's queries, loaded into any Node dev server without touching your code.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1D1D1B; --grey: #6F6F75; --border: #E6E6EA; --surface: #F3F3F5; --page: #F5F8FB;
+      --accent: #FF593D; --accent-soft: #FFE5DF; --accent-ink: #C2371F; --purple: #6E3FF3; --bar: #1D1D1B; --code: #E8EEF4;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 500 16px/1.5 Inter, system-ui, sans-serif; color: var(--ink); background: #fff; -webkit-font-smoothing: antialiased; }
+    a { color: inherit; }
+    code, pre { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+    h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+    h2 { font-size: clamp(26px, 3vw, 36px); line-height: 1.15; max-width: 720px; }
+    p { margin: 0; }
+    .lead { color: var(--grey); font-size: 18px; max-width: 720px; margin-top: 12px; }
+
+    nav { border-bottom: 1px solid var(--border); }
+    nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 20px; padding-bottom: 20px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; text-decoration: none; }
+    .mark { width: 14px; height: 28px; border-radius: 0 999px 999px 0; background: var(--accent); }
+    .nav-links { display: flex; gap: 28px; font-size: 15px; color: var(--grey); }
+    .nav-links a { text-decoration: none; }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-cta { font: 500 13px/1 "JetBrains Mono", monospace; color: #fff; background: var(--ink); padding: 10px 16px; border-radius: 6px; text-decoration: none; white-space: nowrap; }
+    @media (max-width: 860px) { .nav-links, .nav-cta { display: none; } }
+
+    .hero { background: var(--page); padding: 80px 0 64px; }
+    .hero .wrap { display: grid; grid-template-columns: minmax(0, 600px) minmax(0, 1fr); gap: 64px; align-items: start; }
+    .eyebrow { display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; }
+    h1 { font-size: clamp(36px, 4.4vw, 52px); line-height: 1.08; letter-spacing: -0.02em; margin: 20px 0 24px; }
+    .hero .lead { font-size: 19px; margin: 0 0 24px; }
+    .snippet { margin: 0; padding: 16px 20px; border-radius: 10px; background: var(--bar); color: var(--code); font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .snippet .muted { color: #8FA1B3; }
+    .hero .note { margin-top: 16px; font-size: 14px; color: var(--grey); }
+    .hero img { width: 100%; max-width: 420px; height: auto; display: block; margin-top: 24px; border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .12); }
+    @media (max-width: 860px) { .hero .wrap { grid-template-columns: 1fr; gap: 32px; } .hero img { margin: 0 auto; } }
+
+    section { padding: 80px 0; }
+    section.alt { background: var(--page); }
+    .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 40px; }
+    .card { padding: 24px 24px 28px; border-radius: 12px; background: var(--page); }
+    section.alt .card { background: #fff; border: 1px solid var(--border); }
+    .card svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    section.alt .card svg { stroke: var(--purple); }
+    .card h3 { font-size: 18px; margin: 12px 0 8px; }
+    .card p { color: var(--grey); font-size: 15px; }
+    @media (max-width: 860px) { .cards { grid-template-columns: 1fr; } }
+
+    .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 40px; }
+    .step h3 { display: flex; align-items: center; gap: 12px; font-size: 17px; margin-bottom: 14px; }
+    .step .n { flex: none; width: 32px; height: 32px; border-radius: 999px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
+    .step pre { margin: 0; padding: 14px 18px; border-radius: 10px; background: var(--bar); color: var(--code); font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    @media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
+    .zero { margin-top: 40px; max-width: 720px; color: var(--grey); }
+
+    .panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 40px; align-items: start; }
+    .panels figure { margin: 0; }
+    .panels figcaption { font-size: 13px; font-weight: 700; color: var(--grey); letter-spacing: 0.04em; margin-bottom: 12px; }
+    .panels img { width: 100%; height: auto; display: block; border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .12); }
+    @media (max-width: 860px) { .panels { grid-template-columns: 1fr; } }
+
+    .prompt { margin-top: 40px; padding: 24px 28px; border-radius: 12px; background: var(--page); border: 1px solid var(--border); }
+    .prompt .label { font-size: 12px; font-weight: 700; color: var(--grey); letter-spacing: 0.08em; margin-bottom: 12px; }
+    .prompt p { line-height: 1.6; }
+    .prompt code { font-size: 14px; background: #fff; padding: 1px 5px; border-radius: 4px; }
+    .manual { margin-top: 24px; max-width: 720px; color: var(--grey); font-size: 15px; }
+
+    footer { background: var(--bar); color: #fff; font-size: 14px; }
+    footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 24px; padding-top: 28px; padding-bottom: 28px; }
+    footer .links { display: flex; gap: 24px; }
+    footer a { text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    footer .muted { color: rgb(255 255 255 / .7); }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="wrap">
+      <a class="brand" href="#"><span class="mark"></span>datocms-dev-bar</a>
+      <div class="nav-links">
+        <a href="#how">How it works</a>
+        <a href="#xray">X-Ray</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/spleenteo/datocms-dev-bar">GitHub</a>
+      </div>
+      <a class="nav-cta" href="https://www.npmjs.com/package/@spleenteo/datocms-dev-bar">npm i -D @spleenteo/datocms-dev-bar</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap">
+      <div>
+        <span class="eyebrow">FOR DATOCMS SITES · LOCAL ONLY</span>
+        <h1>Draft, published, visual editing: one click, no code.</h1>
+        <p class="lead">A dev bar for DatoCMS sites. It loads into your development server, watches the queries it sends to DatoCMS, applies your switches to them and shows what came back: environment, timings, cache, records and blocks. Nothing of it reaches your build.</p>
+<pre class="snippet"><span class="muted">$ npm install -D @spleenteo/datocms-dev-bar</span>
+"dev": "NODE_OPTIONS=--import=@spleenteo/datocms-dev-bar/register next dev"</pre>
+        <p class="note">Works with <code>next dev</code>, <code>astro dev</code>, <code>nuxt dev</code>, <code>vite dev</code>: any dev server on Node.</p>
+      </div>
+      <img src="img/panel-general.png" alt="The X-Ray panel, General tab: environment, queries of the page, records and blocks" width="822" height="1450">
+    </div>
+  </header>
+
+  <section id="what">
+    <div class="wrap">
+      <h2>Three switches and an X-Ray of the page</h2>
+      <p class="lead">The bar holds what you click; the X-Ray panel above it holds what you read.</p>
+      <div class="cards">
+        <div class="card">
+          <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="6"/><circle cx="8" cy="12" r="2"/></svg>
+          <h3>Draft or published</h3>
+          <p>One click, or Alt+Shift+D, and the page reloads with the other version of the content. Your server reads two cookies; the bar never talks to DatoCMS.</p>
+        </div>
+        <div class="card">
+          <svg viewBox="0 0 24 24"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+          <h3>Visual editing on or off</h3>
+          <p>Content Link overlays when you edit, off when you work on the design and the hidden stega characters get in the way.</p>
+        </div>
+        <div class="card">
+          <svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="11" cy="11" r="3"/><path d="m16 16-2.5-2.5"/></svg>
+          <h3>X-Ray</h3>
+          <p>Environment, response time and size, complexity, CDN cache, cache tags, every query with its text, and the records and blocks the page holds.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="alt">
+    <div class="wrap">
+      <h2>It sits inside your dev server, not inside your code</h2>
+      <div class="steps">
+        <div class="step"><h3><span class="n">1</span>Install it as a dev dependency</h3><pre>npm install -D @spleenteo/datocms-dev-bar</pre></div>
+        <div class="step"><h3><span class="n">2</span>Load it with the dev server</h3><pre>"dev": "NODE_OPTIONS=--import=@spleenteo/datocms-dev-bar/register next dev"</pre></div>
+        <div class="step"><h3><span class="n">3</span>Tell it about your project, in the env</h3><pre>DATOCMS_DEV_BAR_CDA_TOKEN=…
+DATOCMS_BASE_EDITING_URL=https://&lt;project&gt;.admin.datocms.com
+DATOCMS_DEVTOOLS_TOKEN=… (optional, for Records)</pre></div>
+      </div>
+      <p class="zero">No import in your application, no component in your layout. On each request the preload applies the bar's cookies to the calls your server makes to graphql.datocms.com, swaps in the token with draft access, keeps a report of every call, and appends the bar to the HTML. On Next.js it also drives the framework's draft mode.</p>
+    </div>
+  </section>
+
+  <section id="xray">
+    <div class="wrap">
+      <h2>What DatoCMS said about this page</h2>
+      <p class="lead">Four tabs, in the look of the DatoCMS interface. General sums it up; Records and Queries go into the detail; Help explains the keys.</p>
+      <div class="panels">
+        <figure><figcaption>GENERAL</figcaption><img src="img/panel-general.png" alt="General tab" loading="lazy" width="822" height="1450"></figure>
+        <figure><figcaption>RECORDS</figcaption><img src="img/panel-records.png" alt="Records tab" loading="lazy" width="822" height="870"></figure>
+        <figure><figcaption>QUERIES</figcaption><img src="img/panel-queries.png" alt="Queries tab" loading="lazy" width="822" height="1566"></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="safe" class="alt">
+    <div class="wrap">
+      <h2>It stays on your machine, three times over</h2>
+      <div class="cards">
+        <div class="card">
+          <svg viewBox="0 0 24 24"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>
+          <h3>Only where you load it</h3>
+          <p>The preload runs only in the dev script. Nothing of the package is imported by your code, so nothing of it is in your build. A server started with NODE_ENV=production gets nothing, flag or not.</p>
+        </div>
+        <div class="card">
+          <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/></svg>
+          <h3>Only for local hosts</h3>
+          <p>The server acts only on requests from localhost, 127.0.0.1, [::1], .local, .localhost or .test. Any other host gets the page untouched and nothing from /__datocms-dev-bar/.</p>
+        </div>
+        <div class="card">
+          <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="m3 3 18 18"/></svg>
+          <h3>Only on local pages</h3>
+          <p>The bar itself shows only on those hosts. The tokens stay on the server: the page only ever gets names, statuses, titles and links.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2>Let your agent do it</h2>
+      <p class="lead">Three edits, no code: a job for Claude Code, Cursor or Copilot. Paste this and hand over your tokens.</p>
+      <div class="prompt">
+        <div class="label">PROMPT</div>
+        <p>Install <code>@spleenteo/datocms-dev-bar</code> as a dev dependency. In <code>package.json</code>, prefix the <code>dev</code> script with <code>NODE_OPTIONS=--import=@spleenteo/datocms-dev-bar/register </code> (on Windows use <code>cross-env</code>). In the local env file (<code>.env.local</code> or <code>.env</code>, never a production one) add <code>DATOCMS_DEV_BAR_CDA_TOKEN</code> with a Content Delivery API token that can read drafts, <code>DATOCMS_BASE_EDITING_URL</code> with the project's admin URL (<code>https://&lt;project&gt;.admin.datocms.com</code>) and, if I give you one, <code>DATOCMS_DEVTOOLS_TOKEN</code> with a read-only Content Management API token. Do not add any import of the package to the application code. Then restart the dev server and open the site on localhost: a bar with "Viewing draft / published" sits bottom left.</p>
+      </div>
+      <p class="manual">Not on Node (an edge runtime, Cloudflare workerd)? The package also ships server helpers for a manual integration: see the <a href="https://github.com/spleenteo/datocms-dev-bar#manual-integration">README</a>.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <span class="muted">@spleenteo/datocms-dev-bar · MIT</span>
+      <div class="links">
+        <a href="https://github.com/spleenteo/datocms-dev-bar">GitHub</a>
+        <a href="https://www.npmjs.com/package/@spleenteo/datocms-dev-bar">npm</a>
+        <a href="https://github.com/spleenteo/datocms-dev-bar#readme">README</a>
+        <a href="https://www.datocms.com/docs">DatoCMS docs</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
