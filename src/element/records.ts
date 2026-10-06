@@ -95,34 +95,28 @@ function groupByModel(records: RecordInfo[]): ModelGroup[] {
   return [...groups.values()];
 }
 
-/** The rows of the Records tab: one per model. */
+/** The groups of the Records tab: one section per model, folded, with its records inside. */
 export function recordGroups(records: RecordInfo[]): HTMLElement[] {
   return groupByModel(records).map(groupItem);
 }
 
-/** A model: one line with its name and count; more than one record opens to the list. */
+/** A model as a section: its name and count in the header, the records under it. */
 function groupItem(group: ModelGroup): HTMLElement {
-  const item = el("li", "r-group");
-  const head = [el("span", "r-model", group.name)];
-  if (group.block) head.push(el("span", "r-block", "block"));
-  if (group.records.length === 1) {
-    // A single record needs no folding: the model on the first line, its title under it.
-    const row = recordItem(group.records[0], head);
-    item.dataset.search = row.dataset.search;
-    row.removeAttribute("data-search");
-    item.append(row);
-    return item;
-  }
-  const details = el("details");
+  const details = el("details", "sec r-group");
+  details.open = true;
   const summary = el("summary");
-  summary.append(...head, el("span", "r-count", `×${group.records.length}`));
+  const title = el("span", "r-head");
+  title.append(el("span", "r-model", group.name), el("span", "r-count", `· ${group.records.length}`));
+  if (group.block) title.append(el("span", "r-block", "· block"));
   const pending = group.records.filter((r) => r.status === "updated" || r.status === "draft").length;
-  if (pending > 0) summary.append(dot("updated", `${pending} not published`));
+  if (pending > 0) title.append(dot("updated", `${pending} not published`));
+  summary.append(title);
+  const body = el("div", "sec-body");
   const list = el("ul", "r-items");
-  list.append(...group.records.map((record) => recordItem(record)));
-  details.append(summary, list);
-  item.append(details);
-  return item;
+  list.append(...group.records.map(recordItem));
+  body.append(list);
+  details.append(summary, body);
+  return details;
 }
 
 /** A coloured dot for a status; the words go to the tooltip and to screen readers. */
@@ -136,37 +130,28 @@ function dot(status: string, label: string): HTMLElement {
 }
 
 /**
- * One record: status dot, then two lines, the heading (the model when `head` is given, else the title)
- * with the last change, and the title under it; the edit link on the right. Text only, never HTML.
+ * One record: status dot, title, how many blocks it holds, the last change; the edit link on the right.
+ * Text only, never HTML.
  */
-function recordItem(record: RecordInfo, head?: HTMLElement[]): HTMLElement {
+function recordItem(record: RecordInfo): HTMLElement {
   const item = el("li", "r-rec");
-  const title = record.title ? el("span", "r-title", record.title) : null;
-  if (title) title.title = record.title!;
-  const when = el("span", "r-when", ago(record.updatedAt));
-  if (record.updatedAt) when.title = `Updated ${record.updatedAt}`;
-  // How many blocks the record holds, against the cap DatoCMS puts on one record.
-  const blocks = record.blockCount ? el("span", "r-blocks", `${record.blockCount} ${record.blockCount === 1 ? "block" : "blocks"}`) : null;
-  if (blocks) blocks.title = "Blocks in this record, nested and all locales";
   item.dataset.search = [record.model, record.modelApiKey, record.title, record.block ? "block" : "record", STATUS_LABEL[record.status]]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
-
   const main = el("div", "r-main");
-  const top = el("div", "r-head");
-  if (head) {
-    top.append(...head);
-    if (blocks) top.append(blocks);
-    top.append(when);
-    main.append(top);
-    if (title) main.append(title);
-  } else {
-    if (title) top.append(title);
-    if (blocks) top.append(blocks);
-    top.append(when);
-    main.append(top);
+  const title = el("span", "r-title", record.title ?? `#${record.id}`);
+  title.title = record.title ?? record.id;
+  main.append(title);
+  // How many blocks the record holds, against the cap DatoCMS puts on one record.
+  if (record.blockCount) {
+    const blocks = el("span", "r-blocks", `${record.blockCount} ${record.blockCount === 1 ? "block" : "blocks"}`);
+    blocks.title = "Blocks in this record, nested and all locales";
+    main.append(blocks);
   }
+  const when = el("span", "r-when", ago(record.updatedAt));
+  if (record.updatedAt) when.title = `Updated ${record.updatedAt}`;
+  main.append(when);
   if (record.anchor) makeFindable(main, record.anchor);
   item.append(dot(record.status, STATUS_LABEL[record.status]), main);
   if (record.editUrl) {

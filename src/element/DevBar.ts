@@ -12,12 +12,13 @@ import type { ProjectInfo } from "../project";
 import {
   NOT_AVAILABLE,
   assessReport,
-  describeBlocks,
-  describeCalls,
+  blockRows,
+  cacheState,
   describeWeight,
+  flaggedCount,
+  groupReports,
   parseDevBarData,
   summarizeReports,
-  type Flag,
   type QueryReport,
   type SummaryRows,
 } from "../queries";
@@ -172,11 +173,13 @@ export class DevBar extends Base {
       this.applyRecordFilter();
     });
     this.root.querySelector(".advanced")!.addEventListener("click", () => this.setAdvanced(!this.advanced));
-    // The recap of the calls in General opens the Queries tab, and puts the focus on the first query.
-    this.root.querySelector(".recap")!.addEventListener("click", () => {
-      this.setTab("queries");
-      this.root!.querySelector<HTMLElement>(".queries summary")?.focus({ preventScroll: true });
-    });
+    // The buttons at the end of the General sections open the Queries and Records tabs.
+    this.root.querySelectorAll<HTMLButtonElement>("[data-go]").forEach((button) =>
+      button.addEventListener("click", () => {
+        this.setTab(button.dataset.go!);
+        this.root!.querySelector<HTMLElement>(`[data-pane="${button.dataset.go}"] summary`)?.focus({ preventScroll: true });
+      }),
+    );
     this.root.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((button) => {
       button.addEventListener("click", () => this.setTab(button.dataset.tab!));
       // Arrow keys move between tabs, as in any tab list.
@@ -208,31 +211,34 @@ export class DevBar extends Base {
     const summary = summarizeReports(this.reports);
     const none = this.reports.length === 0;
     this.answered = none || summary.environment === NOT_AVAILABLE ? null : summary.environment;
-    // Environment and Blocks have their own sources: the attributes and the project data.
+    // Environment comes from the attributes too, the Records section from the project data: both in update().
     root.querySelectorAll<HTMLElement>("[data-row]").forEach((cell) => {
-      const key = cell.dataset.row as keyof SummaryRows | "environment" | "blocks";
-      if (key !== "environment" && key !== "blocks") cell.textContent = summary[key] ?? "";
+      const key = cell.dataset.row as keyof SummaryRows;
+      if (key in summary && key !== "environment") cell.textContent = summary[key];
     });
+    root.querySelector<HTMLElement>(".cache-dot")!.dataset.cache = cacheState(this.reports);
     root.querySelectorAll<HTMLElement>(".empty").forEach((note) => (note.hidden = !none));
     root.querySelectorAll<HTMLElement>("[data-queries]").forEach((row) => (row.hidden = none));
+    const flagged = flaggedCount(this.reports);
+    const flaggedNote = root.querySelector<HTMLElement>(".flagged")!;
+    flaggedNote.hidden = flagged === 0;
+    flaggedNote.querySelector(".flag")!.textContent = `${flagged} flagged`;
     const project = this.project && !this.project.error ? this.project : null;
-    root.querySelectorAll<HTMLElement>("[data-project]").forEach((row) => (row.hidden = project === null));
-    root.querySelector<HTMLElement>('[data-row="blocks"]')!.textContent = project ? describeBlocks(project) : "";
-    const counts: Record<string, number | null> = {
-      records: this.project && !this.project.error ? this.project.records.length : null,
-      queries: this.reports.length,
-    };
+    const counts: Record<string, number | null> = { records: project ? project.records.length : null, queries: this.reports.length };
     root.querySelectorAll<HTMLElement>("[data-count]").forEach((badge) => {
       const value = counts[badge.dataset.count!];
       badge.textContent = value ? String(value) : "";
       badge.hidden = !value;
     });
-    const recap = root.querySelector<HTMLElement>(".recap")!;
-    recap.hidden = none;
-    recap.querySelector(".recap-text")!.textContent = describeCalls(this.reports);
+    root.querySelectorAll<HTMLElement>("[data-project]").forEach((node) => (node.hidden = project === null));
+    if (project) {
+      const rows = blockRows(project);
+      for (const key of ["records", "blocks", "heaviest"] as const) root.querySelector<HTMLElement>(`[data-row="${key}"]`)!.textContent = rows[key];
+    }
     const list = root.querySelector<HTMLElement>(".queries")!;
     list.hidden = none;
-    list.replaceChildren(...this.reports.map((report, index) => this.queryItem(report, index)));
+    const groups = groupReports(this.reports);
+    list.replaceChildren(...groups.map((group, index) => this.queryItem(group.report, group.count, index, groups.length === 1)));
     this.renderRecords();
     this.update();
   }
@@ -310,46 +316,59 @@ export class DevBar extends Base {
   }
 
   /**
-   * In Queries: the line, why it is flagged, and the text and variables to read and copy.
-   * A single query is open; with more, each opens on click.
+   * In Queries: a section per query, with how many times it ran and its flags in the header; inside,
+   * the figures, why it is flagged, and the text and variables to read and copy. A single query is open.
    */
-  private queryItem(report: QueryReport, tipId: number): HTMLElement {
+  private queryItem(report: QueryReport, count: number, tipId: number, alone: boolean): HTMLElement {
     const flags = assessReport(report);
-    const details = el("details");
-    details.open = this.reports.length === 1;
-    const summary = el("summary", "q-line");
-    summary.append(...queryLineParts(report, flags, tipId));
-    const body = el("div", "q-body");
+    const details = el("details", "sec");
+    details.open = alone;
+    const summary = el("summary");
+    const head = el("span", "q-head");
+    head.append(el("span", "q-name", report.operation ?? "(unnamed query)"));
+    if (count > 1) head.append(el("span", "q-count", `×${count}`));
+    for (const flag of flags) {
+      const chip = el("span", "flag", flag.label);
+      chip.dataset.kind = flag.kind;
+      chip.title = flag.why;
+      head.append(chip);
+    }
+    summary.append(head);
+    const body = el("div", "sec-body");
+    const weight = describeWeight(report);
+    const line = el("div", "q-weight");
+    line.append(el("span", "q-figures", `${weight.time} · ${weight.size} · cx ${weight.complexity} · len ${weight.length} · ${report.cache}`), weightInfo(tipId));
+    body.append(line);
     for (const flag of flags) body.append(el("p", "q-why", flag.why));
     if (report.query) body.append(codeBlock("Query", report.query));
     if (report.variables) body.append(codeBlock("Variables", report.variables));
     if (!report.query) body.append(el("p", "q-why", "The site did not hand over the query text."));
     details.append(summary, body);
-    const item = el("li");
-    item.append(details);
-    return item;
+    return details;
   }
 
   private renderRecords() {
     const root = this.root!;
-    const note = root.querySelector<HTMLElement>(".records-note")!;
     const project = this.project;
     let message = "";
     if (!project) message = "Add a read-only Content Management API token on the server to see them: see the README.";
     else if (project.error) message = `Could not read the project: ${project.error}`;
     else if (project.records.length === 0) message = "No records found in this page's queries.";
+    root.querySelector<HTMLElement>(".records-note-text")!.textContent = message;
+    const note = root.querySelector<HTMLElement>(".project-note")!;
     note.textContent = message;
     note.hidden = message === "";
     const records = project?.records ?? [];
-    const filter = root.querySelector<HTMLInputElement>(".records-filter")!;
-    filter.hidden = records.length === 0;
-    filter.value = this.recordFilter;
+    root.querySelector<HTMLElement>(".records-filter-wrap")!.hidden = records.length === 0;
+    root.querySelector<HTMLInputElement>(".records-filter")!.value = this.recordFilter;
     root.querySelector<HTMLElement>(".records")!.replaceChildren(...recordGroups(records));
     // Every block inside these records, by model, all locales
     const counts = project && !project.error ? project.blockCounts : [];
-    root.querySelector<HTMLElement>(".block-counts")!.hidden = counts.length === 0;
+    const box = root.querySelector<HTMLDetailsElement>(".block-counts")!;
+    box.hidden = counts.length === 0;
+    box.open = false;
     const total = counts.reduce((sum, b) => sum + b.count, 0);
-    root.querySelector<HTMLElement>(".block-total")!.textContent = `${total} ${total === 1 ? "block" : "blocks"} in these records, all locales`;
+    root.querySelector<HTMLElement>(".block-total")!.textContent = `Blocks by model · ${total}`;
     root.querySelector<HTMLElement>(".block-list")!.replaceChildren(
       ...counts.map((b) => {
         const item = el("li");
@@ -367,20 +386,17 @@ export class DevBar extends Base {
     if (!project || project.error || project.records.length === 0) return;
     const words = this.recordFilter.toLowerCase().split(/\s+/).filter(Boolean);
     let shown = 0;
-    root.querySelectorAll<HTMLElement>(".r-group").forEach((group) => {
+    root.querySelectorAll<HTMLDetailsElement>(".r-group").forEach((group) => {
       let groupShown = 0;
-      // A single-record group carries the search text itself; a folded one, on each record.
-      const items = group.dataset.search ? [group] : [...group.querySelectorAll<HTMLElement>("[data-search]")];
-      items.forEach((item) => {
+      group.querySelectorAll<HTMLElement>("[data-search]").forEach((item) => {
         const match = words.every((word) => item.dataset.search!.includes(word));
-        if (item !== group) item.hidden = !match;
+        item.hidden = !match;
         if (match) groupShown++;
       });
       group.hidden = groupShown === 0;
       shown += groupShown;
       // While filtering, open the groups that still have matches.
-      const details = group.querySelector("details");
-      if (details && words.length) details.open = groupShown > 0;
+      if (words.length) group.open = groupShown > 0;
     });
     const total = project.records.length;
     const blocks = project.blocks;
@@ -390,9 +406,7 @@ export class DevBar extends Base {
     if (project.moreRecords > 0) parts.push(`${project.moreRecords} more IDs not looked up`);
     // Blocks but no records: the token's role most likely cannot read any model.
     if (blocks > 0 && blocks === total) parts.push("no records readable: give the token's role read access to the models");
-    const note = root.querySelector<HTMLElement>(".records-note")!;
-    note.textContent = parts.join(", ") + ".";
-    note.hidden = false;
+    root.querySelector<HTMLElement>(".records-note-text")!.textContent = parts.join(", ") + ".";
   }
 
   private commit(next: DevPreviewState) {
@@ -423,19 +437,6 @@ export class DevBar extends Base {
 function readData() {
   const script = document.querySelector('script[type="application/json"][data-datocms-dev-bar]');
   return parseDevBarData(script?.textContent);
-}
-
-/** What a query line holds: name, flags, the figures, and the "i" that explains them. */
-function queryLineParts(report: QueryReport, flags: Flag[], tipId: number): HTMLElement[] {
-  const chips = flags.map((flag) => {
-    const chip = el("span", "flag", flag.label);
-    chip.dataset.kind = flag.kind;
-    chip.title = flag.why;
-    return chip;
-  });
-  const weight = describeWeight(report);
-  const figures = `${weight.time} · ${weight.size} · cx ${weight.complexity} · len ${weight.length} · ${report.cache}`;
-  return [el("span", "q-name", report.operation ?? "(unnamed query)"), ...chips, el("span", "q-weight", figures), weightInfo(tipId)];
 }
 
 /** The "i" at the end of a query line: what the figures mean. A click on it must not fold the row. */

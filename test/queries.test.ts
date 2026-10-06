@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProjectInfo, RecordInfo } from "../src/project";
-import { assessReport, describeBlocks, describeCalls, describeWeight, formatBytes, parseDevBarData, readQueryReport, serializeDevBarData, summarizeReports, type QueryReport } from "../src/queries";
+import { assessReport, blockRows, cacheState, describeWeight, flaggedCount, groupReports, formatBytes, parseDevBarData, readQueryReport, serializeDevBarData, summarizeReports, type QueryReport } from "../src/queries";
 
 const headers = (values: Record<string, string>) => ({ get: (name: string) => values[name.toLowerCase()] ?? null });
 
@@ -101,24 +101,28 @@ describe("summarizeReports", () => {
   it("describes one cached query", () => {
     expect(summarizeReports([report()])).toEqual({
       environment: "main-26",
+      calls: "1",
       time: "35 ms",
-      complexity: "102 of 21,294,900",
-      queryLength: "192 of 12,000",
-      cache: "Yes, from cache",
+      complexity: "102 / 21,294,900",
+      queryLength: "192 / 12,000",
+      cache: "From cache",
       cacheTags: "Active",
       size: "n/a",
     });
   });
   it("sums times and picks the extremes across queries", () => {
     const s = summarizeReports([report({ timingsTotalMs: 30 }), report({ timingsTotalMs: 12, complexity: 900, queryLength: 400 })]);
-    expect(s.time).toBe("42 ms across 2 queries");
-    expect(s.complexity).toBe("900 of 21,294,900 (highest)");
-    expect(s.queryLength).toBe("400 of 12,000 (longest)");
+    expect(s.calls).toBe("2 (1 distinct)");
+    expect(s.time).toBe("42 ms");
+    expect(s.complexity).toBe("900 / 21,294,900 (highest)");
+    expect(s.queryLength).toBe("400 / 12,000 (longest)");
   });
   it("explains a miss, a bypass and a mix", () => {
-    expect(summarizeReports([report({ cache: "miss" })]).cache).toBe("No, computed fresh (cached for next time)");
-    expect(summarizeReports([report({ cache: "bypass" })]).cache).toBe("No, cache bypassed");
-    expect(summarizeReports([report(), report({ cache: "miss" })]).cache).toBe("Partly, 1 of 2 from cache");
+    expect(summarizeReports([report({ cache: "miss" })]).cache).toBe("None, computed fresh (cached for next time)");
+    expect(summarizeReports([report({ cache: "bypass" })]).cache).toBe("None, cache bypassed");
+    expect(summarizeReports([report(), report({ cache: "miss" })]).cache).toBe("1 of 2 from cache");
+    expect(summarizeReports([report(), report()]).cache).toBe("All 2 from cache");
+    expect([[], [report()], [report(), report({ cache: "miss" })], [report({ cache: "miss" })]].map(cacheState)).toEqual(["none", "all", "some", "none"]);
   });
   it("explains cache tags in drafts and when they go missing", () => {
     expect(summarizeReports([report({ cacheTags: "not-requested" })]).cacheTags).toBe("Not requested");
@@ -126,7 +130,7 @@ describe("summarizeReports", () => {
     expect(summarizeReports([report(), report({ cacheTags: "missing" })]).cacheTags).toBe("Partly, active on 1 of 2");
   });
   it("answers n/a without queries", () => {
-    expect(Object.values(summarizeReports([]))).toEqual(Array(7).fill("n/a"));
+    expect(Object.values(summarizeReports([]))).toEqual(Array(8).fill("n/a"));
   });
 });
 
@@ -154,22 +158,21 @@ describe("assessReport", () => {
   });
 });
 
-describe("describeBlocks", () => {
+describe("blockRows", () => {
   const rec = (id: string, blockCount: number | null, block = false): RecordInfo => ({ id, model: "Page", modelApiKey: "page", title: `T${id}`, block, status: "published", updatedAt: null, editUrl: null, anchor: null, blockCount });
   const project = (records: RecordInfo[]): ProjectInfo => ({ environments: [], records, moreRecords: 0, blocks: 0, blockCounts: [], error: null });
-  it("sums the blocks and names the record with the most", () => {
-    expect(describeBlocks(project([rec("1", 12), rec("2", 480), rec("3", null, true)]))).toBe("492 in 2 records, up to 480 in T2");
-    expect(describeBlocks(project([rec("1", 7)]))).toBe("7 in T1");
-    expect(describeBlocks(project([rec("1", 0), rec("2", 0)]))).toBe("none in 2 records");
-    expect(describeBlocks(project([rec("3", null, true)]))).toBe("n/a");
+  it("counts the records and their blocks, and names the record with the most", () => {
+    expect(blockRows(project([rec("1", 12), rec("2", 480), rec("3", null, true)]))).toEqual({ records: "2", blocks: "492", heaviest: "T2 · 480 blocks" });
+    expect(blockRows(project([rec("1", 0), rec("2", 0)]))).toEqual({ records: "2", blocks: "0", heaviest: "none" });
   });
 });
 
-describe("describeCalls", () => {
-  it("counts calls and distinct queries, sums the weight, counts the flagged", () => {
-    const q = (query: string, over: Partial<QueryReport> = {}) => report({ query, responseBytes: 1_000, ...over });
-    expect(describeCalls([q("a"), q("a"), q("b", { timingsTotalMs: 600 })])).toBe("3 calls · 2 distinct queries · 670 ms · 2.9 KB · 1 flagged");
-    expect(describeCalls([report({ timingsTotalMs: null })])).toBe("1 call · 1 distinct query");
+describe("flaggedCount and groupReports", () => {
+  it("counts the flagged queries and folds identical ones together", () => {
+    const q = (query: string, over: Partial<QueryReport> = {}) => report({ query, ...over });
+    const reports = [q("a"), q("a"), q("b", { timingsTotalMs: 600 })];
+    expect(flaggedCount(reports)).toBe(1);
+    expect(groupReports(reports).map((g) => [g.report.query, g.count])).toEqual([["a", 2], ["b", 1]]);
   });
 });
 
@@ -203,7 +206,7 @@ describe("response size", () => {
   });
   it("sums sizes and flags a large response", () => {
     const s = summarizeReports([report({ responseBytes: 3_000 }), report({ responseBytes: 250_000 })]);
-    expect(s.size).toBe("247 KB in total, largest 244 KB");
+    expect(s.size).toBe("247 KB, largest 244 KB");
     expect(assessReport(report({ responseBytes: 250_000 })).map((f) => f.label)).toEqual(["large 244 KB"]);
     expect(formatBytes(512)).toBe("512 B");
     expect(formatBytes(5_000)).toBe("4.9 KB");

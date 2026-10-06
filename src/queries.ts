@@ -194,6 +194,8 @@ function parseProject(value: unknown): ProjectInfo | null {
 
 export type SummaryRows = {
   environment: string;
+  /** How many calls, and how many distinct queries among them. */
+  calls: string;
   time: string;
   size: string;
   complexity: string;
@@ -233,28 +235,26 @@ export function summarizeReports(reports: QueryReport[]): SummaryRows {
   const environments = [...new Set(reports.map((r) => r.environment).filter((e): e is string => e !== null))];
 
   const times = reports.map((r) => r.timingsTotalMs).filter((t): t is number => t !== null);
-  const time = times.length
-    ? `${number(times.reduce((a, b) => a + b, 0))} ms${many ? ` across ${reports.length} queries` : ""}`
-    : NOT_AVAILABLE;
+  const time = times.length ? `${number(times.reduce((a, b) => a + b, 0))} ms` : NOT_AVAILABLE;
 
   const heaviest = highest(reports, (r) => r.complexity);
   const complexity = heaviest
-    ? `${number(heaviest.complexity!)}${heaviest.maxComplexity !== null ? ` of ${number(heaviest.maxComplexity)}` : ""}${many ? " (highest)" : ""}`
+    ? `${number(heaviest.complexity!)}${heaviest.maxComplexity !== null ? ` / ${number(heaviest.maxComplexity)}` : ""}${many ? " (highest)" : ""}`
     : NOT_AVAILABLE;
 
   const longest = highest(reports, (r) => r.queryLength);
   const queryLength = longest
-    ? `${number(longest.queryLength!)}${longest.queryLengthLimit !== null ? ` of ${number(longest.queryLengthLimit)}` : ""}${many ? " (longest)" : ""}`
+    ? `${number(longest.queryLength!)}${longest.queryLengthLimit !== null ? ` / ${number(longest.queryLengthLimit)}` : ""}${many ? " (longest)" : ""}`
     : NOT_AVAILABLE;
 
   const sizes = reports.map((r) => r.responseBytes).filter((b): b is number => b !== null);
   const total = sizes.reduce((a, b) => a + b, 0);
-  const size = sizes.length
-    ? `${formatBytes(total)}${many ? ` in total, largest ${formatBytes(Math.max(...sizes))}` : ""}`
-    : NOT_AVAILABLE;
+  const size = sizes.length ? `${formatBytes(total)}${many ? `, largest ${formatBytes(Math.max(...sizes))}` : ""}` : NOT_AVAILABLE;
+  const distinct = new Set(reports.map((r) => r.query ?? r.operation ?? "")).size;
 
   return {
     environment: environments.length ? environments.join(", ") : NOT_AVAILABLE,
+    calls: reports.length === 0 ? NOT_AVAILABLE : many ? `${reports.length} (${distinct} distinct)` : "1",
     time,
     size,
     complexity,
@@ -268,11 +268,17 @@ function describeCache(reports: QueryReport[]): string {
   const total = reports.length;
   if (total === 0) return NOT_AVAILABLE;
   const hits = reports.filter((r) => r.cache === "hit").length;
-  if (hits === total) return total === 1 ? "Yes, from cache" : `Yes, all ${total} from cache`;
-  if (hits > 0) return `Partly, ${hits} of ${total} from cache`;
-  if (reports.some((r) => r.cache === "miss")) return "No, computed fresh (cached for next time)";
-  if (reports.some((r) => r.cache === "bypass")) return "No, cache bypassed";
+  if (hits === total) return total === 1 ? "From cache" : `All ${total} from cache`;
+  if (hits > 0) return `${hits} of ${total} from cache`;
+  if (reports.some((r) => r.cache === "miss")) return "None, computed fresh (cached for next time)";
+  if (reports.some((r) => r.cache === "bypass")) return "None, cache bypassed";
   return "Unknown";
+}
+
+/** How much of the page came from the CDN cache: for the dot next to the From cache row. */
+export function cacheState(reports: QueryReport[]): "all" | "some" | "none" {
+  const hits = reports.filter((r) => r.cache === "hit").length;
+  return hits === 0 ? "none" : hits === reports.length ? "all" : "some";
 }
 
 function describeCacheTags(reports: QueryReport[]): string {
@@ -335,36 +341,31 @@ export function assessReport(report: QueryReport): Flag[] {
   return flags;
 }
 
-/**
- * The blocks of the page's records in one line, for the Blocks row of the General tab: the total, and the
- * record that holds the most, since DatoCMS caps the blocks of a single record.
- */
-export function describeBlocks(project: ProjectInfo): string {
-  const records = project.records.filter((r) => !r.block && r.blockCount !== null);
-  if (records.length === 0) return NOT_AVAILABLE;
+/** The rows of the Records section of the General tab: records, blocks in use, and the record with the most. */
+export function blockRows(project: ProjectInfo): { records: string; blocks: string; heaviest: string } {
+  const records = project.records.filter((r) => !r.block);
   const total = records.reduce((sum, r) => sum + (r.blockCount ?? 0), 0);
-  if (total === 0) return `none in ${records.length === 1 ? "the record" : `${records.length} records`}`;
-  const most = records.reduce((best, r) => ((r.blockCount ?? 0) > (best.blockCount ?? 0) ? r : best));
-  const name = most.title ?? most.model ?? most.id;
-  return records.length === 1 ? `${number(total)} in ${name}` : `${number(total)} in ${records.length} records, up to ${number(most.blockCount ?? 0)} in ${name}`;
+  const most = records.reduce<RecordInfo | null>((best, r) => ((r.blockCount ?? 0) > (best?.blockCount ?? 0) ? r : best), null);
+  return {
+    records: number(records.length),
+    blocks: number(total),
+    heaviest: most ? `${most.title ?? most.model ?? most.id} · ${number(most.blockCount ?? 0)} ${most.blockCount === 1 ? "block" : "blocks"}` : "none",
+  };
 }
 
-/** The calls of the page in one line, for the recap of the General tab: how many, how many distinct queries, their weight, how many flagged. */
-export function describeCalls(reports: QueryReport[]): string {
-  const calls = reports.length;
-  const distinct = new Set(reports.map((r) => r.query ?? r.operation ?? "")).size;
-  const times = reports.map((r) => r.timingsTotalMs).filter((t): t is number => t !== null);
-  const sizes = reports.map((r) => r.responseBytes).filter((b): b is number => b !== null);
-  const flagged = reports.filter((r) => assessReport(r).length > 0).length;
-  return [
-    `${calls} ${calls === 1 ? "call" : "calls"}`,
-    `${distinct} distinct ${distinct === 1 ? "query" : "queries"}`,
-    times.length ? `${number(times.reduce((a, b) => a + b, 0))} ms` : null,
-    sizes.length ? formatBytes(sizes.reduce((a, b) => a + b, 0)) : null,
-    flagged ? `${flagged} flagged` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+/** How many of the page's queries carry a flag. */
+export const flaggedCount = (reports: QueryReport[]): number => reports.filter((r) => assessReport(r).length > 0).length;
+
+/** Identical queries together, in the order of their first call: the Queries tab shows each once, with how many times it ran. */
+export function groupReports(reports: QueryReport[]): { report: QueryReport; count: number }[] {
+  const groups = new Map<string, { report: QueryReport; count: number }>();
+  for (const report of reports) {
+    const key = report.query ?? report.operation ?? "";
+    const group = groups.get(key);
+    if (group) group.count++;
+    else groups.set(key, { report, count: 1 });
+  }
+  return [...groups.values()];
 }
 
 /** The measures of a query as short text, for its line: time, size, share of the maximum complexity, share of the length limit. */

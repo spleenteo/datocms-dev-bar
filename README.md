@@ -19,12 +19,12 @@ It loads into your development server and needs no change to your code: it watch
 
 | Tab | What it shows | Needs |
 |---|---|---|
-| General | environment (primary or not), response time, response size, complexity, query length, CDN cache, blocks in the page's records, cache tags, a recap of the calls that opens the Queries tab, links to the project and the docs | nothing |
+| General | three sections: the environment (primary or not) with links to the project and the docs; the queries of the page (calls, response time and size, complexity, query length, CDN cache, cache tags, how many are flagged); the records and blocks of the page, with the heaviest record. Each section ends with a button to the matching tab | nothing |
 | Records | the records and blocks the page shows, grouped by model, with status, title and last change; a filter; a click scrolls to the content | a read-only CMA token |
-| Queries | each query with its text and variables, ready to copy; flags on slow, heavy, long or large ones | nothing |
+| Queries | each distinct query, with how many times it ran, its figures, its text and variables ready to copy; flags on slow, heavy, long or large ones | nothing |
 | Help | keyboard shortcuts and a short guide | nothing |
 
-Every figure has an "i" icon that explains it.
+The panel follows the look of the DatoCMS interface: light, with folding sections. Every label explains itself on hover.
 
 ## Install
 

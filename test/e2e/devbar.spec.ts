@@ -95,7 +95,7 @@ test("stays hidden on a non-local host", async ({ page }) => {
   await expect(page.locator("datocms-dev-bar .tab")).toHaveCount(0);
 });
 
-test("General shows the environment, how the queries performed, and a line per query", async ({ page }) => {
+test("General sums up the page in three sections and opens the other tabs", async ({ page }) => {
   await page.goto("/");
   await tab(page).click();
   const panel = control(page, ".panel");
@@ -103,21 +103,27 @@ test("General shows the environment, how the queries performed, and a line per q
   await control(page, ".advanced").click();
   await expect(panel).toBeVisible();
   const general = control(page, "#pane-general");
+  await expect(general.locator(".sec > summary")).toHaveText(["Environment", "Queries on this page", "Records on this page"]);
   await expect(general.locator("[data-row=environment]")).toHaveText("main");
-  await expect(general.locator("[data-row=time]")).toHaveText("647 ms across 2 queries");
-  await expect(general.locator("[data-row=complexity]")).toHaveText("1,500,000 of 21,294,900 (highest)");
-  await expect(general.locator("[data-row=cache]")).toHaveText("Partly, 1 of 2 from cache");
+  await expect(general.locator(".badge")).toHaveText("primary");
+  await expect(general.locator("[data-row=calls]")).toHaveText("2 (2 distinct)");
+  await expect(general.locator("[data-row=time]")).toHaveText("647 ms");
+  await expect(general.locator("[data-row=size]")).toHaveText("257 KB, largest 254 KB");
+  await expect(general.locator("[data-row=complexity]")).toHaveText("1,500,000 / 21,294,900 (highest)");
+  await expect(general.locator("[data-row=cache]")).toHaveText("1 of 2 from cache");
+  await expect(general.locator(".cache-dot")).toHaveAttribute("data-cache", "some");
   await expect(general.locator("[data-row=cacheTags]")).toHaveText("Active on all 2");
-  await expect(general.locator(".rows .i")).toHaveCount(8);
-  await expect(general.locator("[data-row=blocks]")).toHaveText("7 in 3 records, up to 5 in Home page");
-  await expect(general.locator("[data-row=size]")).toHaveText("257 KB in total, largest 254 KB");
-  await general.locator(".i").first().hover();
-  await expect(control(page, "#tip-environment")).toBeVisible();
-  const recap = general.locator(".recap");
-  await expect(recap).toHaveText("2 calls · 2 distinct queries · 647 ms · 257 KB · 1 flagged→");
-  await recap.click();
+  await expect(general.locator(".flagged .flag")).toHaveText("1 flagged");
+  await expect(general.locator("[data-row=records]")).toHaveText("3");
+  await expect(general.locator("[data-row=blocks]")).toHaveText("7");
+  await expect(general.locator("[data-row=heaviest]")).toHaveText("Home page · 5 blocks");
+  await expect(general.locator("dt[title]").first()).toHaveAttribute("title", /x-environment/);
+  await general.locator("[data-go=records]").click();
+  await expect(control(page, "[data-tab=records]")).toHaveAttribute("aria-selected", "true");
+  await control(page, "[data-tab=general]").click();
+  await general.locator("[data-go=queries]").click();
   await expect(control(page, "[data-tab=queries]")).toHaveAttribute("aria-selected", "true");
-  await expect(control(page, ".queries > li").nth(1).locator(".flag")).toHaveText(["slow", "heavy 7%", "large 254 KB"]);
+  await expect(control(page, ".queries > details").nth(1).locator(".flag")).toHaveText(["slow", "heavy 7%", "large 254 KB"]);
 });
 
 test("Queries shows each query with its text and variables", async ({ page }) => {
@@ -126,7 +132,7 @@ test("Queries shows each query with its text and variables", async ({ page }) =>
   await control(page, ".advanced").click();
   await control(page, "[data-tab=queries]").click();
   await expect(control(page, "[data-tab=queries] .tab-count")).toHaveText("2");
-  const items = control(page, ".queries > li");
+  const items = control(page, ".queries > details");
   await expect(items).toHaveCount(2);
   await expect(items.nth(0).locator(".flag")).toHaveCount(0);
   // With more than one query they start closed; a click opens one
@@ -134,6 +140,7 @@ test("Queries shows each query with its text and variables", async ({ page }) =>
   await items.nth(1).locator(".q-name").click();
   await expect(items.nth(1).locator("pre").first()).toBeVisible();
   await expect(items.nth(0).locator("pre").first()).toBeHidden();
+  await expect(items.nth(1).locator(".q-figures")).toContainText("612 ms · 254 KB");
   await expect(items.nth(1).locator("pre").first()).toContainText("query MenuQuery");
   await expect(items.nth(1).locator("pre").nth(1)).toContainText('"locale": "it"');
 });
@@ -146,22 +153,23 @@ test("records are grouped by model and can be filtered", async ({ page }) => {
   const groups = control(page, ".r-group");
   await expect(groups).toHaveCount(3);
   await expect(control(page, ".r-group .r-model")).toHaveText(["Home page", "Menu item", "Button"]);
-  await expect(control(page, ".records-note")).toHaveText("3 records, 1 block.");
-  await expect(control(page, ".block-total")).toHaveText("7 blocks in these records, all locales");
+  await expect(control(page, ".records-note-text")).toHaveText("3 records, 1 block.");
+  await expect(control(page, ".block-total")).toHaveText("Blocks by model · 7");
   const menu = groups.nth(1);
-  await expect(menu.locator(".r-count")).toHaveText("×2");
+  await expect(menu.locator(".r-count")).toHaveText("· 2");
   await expect(menu.locator("summary .r-dot")).toHaveAttribute("aria-label", "1 not published");
   await expect(menu.locator(".r-title")).toHaveText(["Pricing", "Blog"]);
   await expect(groups.nth(0).locator(".r-blocks")).toHaveText("5 blocks");
+  await expect(groups.nth(2).locator(".r-block")).toHaveText("· block");
   const edit = groups.nth(0).locator(".r-edit");
   await expect(edit).toHaveAttribute("aria-label", "Edit in DatoCMS (opens in a new window)");
   await expect(edit.locator("svg")).toHaveCount(1);
   await expect(edit).toHaveAttribute("target", "_blank");
   await control(page, ".records-filter").fill("unpublished");
   await expect(control(page, ".r-group:visible")).toHaveCount(1);
-  await expect(menu.locator("details")).toHaveAttribute("open", "");
+  await expect(menu).toHaveAttribute("open", "");
   await expect(menu.locator(".r-items li:visible")).toHaveCount(1);
-  await expect(control(page, ".records-note")).toHaveText("1 of 4 shown.");
+  await expect(control(page, ".records-note-text")).toHaveText("1 of 4 shown.");
   await control(page, ".records-filter").fill("block");
   await expect(control(page, ".r-group:visible .r-model")).toHaveText("Button");
   await control(page, ".records-filter").fill("");
@@ -173,14 +181,14 @@ test("what is open in the panel stays open while the bar changes state", async (
   await tab(page).click();
   await control(page, ".advanced").click();
   await control(page, "[data-tab=records]").click();
-  const menu = control(page, ".r-group").nth(1).locator("details");
+  const menu = control(page, ".r-group").nth(1);
   await menu.locator("summary").click();
-  await expect(menu).toHaveAttribute("open", "");
+  await expect(menu).not.toHaveAttribute("open", "");
   await control(page, "[data-tab=queries]").click();
   await control(page, "[data-tab=records]").click();
   await page.evaluate(() => document.dispatchEvent(new CustomEvent("datocms:click-to-edit:toggle", { detail: true })));
   await expect(control(page, ".outlines-label")).toHaveText("Outlines on");
-  await expect(menu).toHaveAttribute("open", "");
+  await expect(menu).not.toHaveAttribute("open", "");
 });
 
 test("a record that Content Link ties to the page scrolls there on click", async ({ page }) => {
@@ -219,7 +227,7 @@ test("with data-url the bar loads its data from the site after the page", async 
   await tab(page).click();
   await control(page, ".advanced").click();
   await expect(control(page, "[data-row=environment]")).toHaveText("main");
-  await expect(control(page, ".recap")).toContainText("1 call · 1 distinct query");
+  await expect(control(page, "[data-row=calls]")).toHaveText("1");
   await expect(control(page, "[data-tab=records] .tab-count")).toHaveText("4");
 });
 

@@ -1,58 +1,46 @@
-// What each row of the X-Ray panel means, shown behind its "i" icon.
-const ROWS = [
-  {
-    key: "environment",
-    label: "Environment",
-    tip: "The DatoCMS environment that answered (x-environment header). A site that names none reads the primary environment.",
-  },
-  {
-    key: "time",
-    label: "Response time",
-    tip: "Time DatoCMS spent on the query (x-timings-total). It leaves out the network trip and your server. On a cache hit it repeats the time of the original run.",
-  },
-  {
-    key: "size",
-    label: "Response size",
-    tip: "Size of the JSON DatoCMS sent back, uncompressed: the network moves less thanks to compression. In drafts with Visual editing on, Content Link adds hidden characters to every text, so responses are bigger than on published content.",
-  },
-  {
-    key: "complexity",
-    label: "Complexity",
-    tip: "How costly the query is, against the maximum DatoCMS accepts (x-complexity and x-max-complexity). Deep nesting and long lists raise it.",
-  },
-  {
-    key: "queryLength",
-    label: "Query length",
-    tip: "Size of the query text against the limit for being cached on the CDN (x-cacheable-on-cdn-query-length-limit). Above the limit the query is not cacheable there.",
-  },
-  {
-    key: "cache",
-    label: "From cache",
-    tip: "Whether the DatoCMS CDN answered from its cache (cf-cache-status). HIT: served from cache. MISS: computed now and stored for next time. BYPASS: caching skipped, as with drafts.",
-  },
-  {
-    key: "blocks",
-    label: "Blocks",
-    tip: "Blocks inside the records of this page, nested ones and all locales included, and the record that holds the most. DatoCMS caps the blocks a single record can hold (500 by default; the cap depends on the plan), so the heaviest record is the one to watch. Needs the CMA token.",
-  },
-  {
-    key: "cacheTags",
-    label: "Cache tags",
-    tip: "Tags that let your site clear cached pages when content changes (x-cache-tags). Active: DatoCMS returned them. Not requested: the query did not ask, and drafts never do. Missing: asked for, none came back. The bar cannot see whether your invalidation webhook is set up.",
-  },
-];
+// What each row of the General tab means: on the label, as a tooltip.
+const ROWS = {
+  environment: ["Environment", "The DatoCMS environment that answered (x-environment header). A site that names none reads the primary environment."],
+  calls: ["Calls", "How many times the page asked the Content Delivery API, and how many different queries it sent."],
+  time: ["Response time", "Time DatoCMS spent on the queries (x-timings-total), summed. It leaves out the network trip and your server. On a cache hit it repeats the time of the original run."],
+  size: ["Response size", "Size of the JSON DatoCMS sent back, uncompressed: the network moves less thanks to compression. In drafts with Visual editing on, Content Link adds hidden characters to every text, so responses are bigger than on published content."],
+  complexity: ["Complexity", "How costly the heaviest query is, against the maximum DatoCMS accepts (x-complexity and x-max-complexity). Deep nesting and long lists raise it."],
+  queryLength: ["Query length", "Size of the longest query text against the limit for being cached on the CDN (x-cacheable-on-cdn-query-length-limit). Above the limit the query is not cacheable there."],
+  cache: ["From cache", "Whether the DatoCMS CDN answered from its cache (cf-cache-status). HIT: served from cache. MISS: computed now and stored for next time. BYPASS: caching skipped, as with drafts."],
+  cacheTags: ["Cache tags", "Tags that let your site clear cached pages when content changes (x-cache-tags). Active: DatoCMS returned them. Not requested: the query did not ask, and drafts never do. Missing: asked for, none came back. The bar cannot see whether your invalidation webhook is set up."],
+  records: ["Records", "Records whose content the page shows, read from the Content Management API with the read-only token on the server."],
+  blocks: ["Blocks in use", "Blocks inside the records of this page, nested ones and all locales included."],
+  heaviest: ["Heaviest record", "The record with the most blocks. DatoCMS caps the blocks a single record can hold (500 by default; the cap depends on the plan), so this is the one to watch."],
+} as const;
 
-const row = ({ key, label, tip }: (typeof ROWS)[number]) => `
-      <div class="row"${key === "environment" ? "" : key === "blocks" ? " data-project" : " data-queries"}>
-        <dt>${label}<span class="info"><button type="button" class="i" aria-label="About ${label}" aria-describedby="tip-${key}">i</button><span class="tip" role="tooltip" id="tip-${key}">${tip}</span></span></dt>
-        <dd><span data-row="${key}"></span>${key === "environment" ? '<span class="badge" data-primary="true"></span>' : ""}</dd>
-      </div>`;
+const row = (key: keyof typeof ROWS, value = `<span data-row="${key}"></span>`) =>
+  `<div class="row"><dt title="${ROWS[key][1]}">${ROWS[key][0]}</dt><dd>${value}</dd></div>`;
+
+const section = (title: string, body: string) => `
+      <details class="sec" open><summary>${title}</summary><div class="sec-body">${body}</div></details>`;
 
 export const TABS = [
   { key: "general", label: "General" },
   { key: "records", label: "Records" },
   { key: "queries", label: "Queries" },
   { key: "help", label: "Help" },
+];
+
+const info = (name: string, tip: string) =>
+  `<span class="info"><button type="button" class="i" aria-label="About ${name}" aria-describedby="tip-${name}">i</button><span class="tip" role="tooltip" id="tip-${name}">${tip}</span></span>`;
+
+const KEYS = [
+  [["Alt", "Shift", "D"], "Switch between draft and published"],
+  [["Alt", "Shift", "V"], "Turn visual editing on and off (drafts only)"],
+  [["Alt", "Shift", "B"], "Open and close the bar"],
+  [["Alt"], "Hold: show the edit outlines, or hide them if the site keeps them on (Content Link, drafts with visual editing on)"],
+] as const;
+
+const HOW = [
+  ["The bar", "writes two cookies and reloads the page; the server reads them to query DatoCMS. <code>?datocms=published</code> or <code>?datocms-visual=off</code> do the same for one page."],
+  ["General", "the environment the page read, how its queries performed, and the records and blocks it holds, with links to the project and the docs."],
+  ["Records", "what the page shows, by model. Green dot published, yellow unpublished changes, hollow draft. Needs a read-only CMA token on the server. With visual editing on, click a record to scroll to it."],
+  ["Queries", "each query with its text and variables, ready to copy. Orange flags mark slow, heavy, long or large queries."],
 ];
 
 // The bar holds what you click; the X-Ray panel above it holds what you read.
@@ -75,7 +63,7 @@ export const TEMPLATE = `
     </span>
     <span class="outlines" hidden>
       <span class="outlines-dot" aria-hidden="true"></span><span class="outlines-label"></span>
-      <span class="info"><button type="button" class="i" aria-label="About outlines" aria-describedby="tip-outlines">i</button><span class="tip" role="tooltip" id="tip-outlines">Outlines mark what you can edit in DatoCMS. Hold Alt (Option on a Mac) to show them, or to hide them if your site keeps them on: the bar shows their state once it changes. Turning Visual editing off also removes the invisible stega characters Content Link adds to texts, which can get in the way while you work on the design (text width, line breaks, copy and paste).</span></span>
+      ${info("outlines", "Outlines mark what you can edit in DatoCMS. Hold Alt (Option on a Mac) to show them, or to hide them if your site keeps them on: the bar shows their state once it changes. Turning Visual editing off also removes the invisible stega characters Content Link adds to texts, which can get in the way while you work on the design (text width, line breaks, copy and paste).")}
     </span>
     <span class="sep" aria-hidden="true"></span>
     <button type="button" class="advanced" aria-expanded="false" aria-controls="advanced">X-Ray</button>
@@ -83,53 +71,51 @@ export const TEMPLATE = `
   </div>
   <section class="panel" id="advanced" aria-label="X-Ray">
     <div class="pane" role="tabpanel" id="pane-general" data-pane="general" aria-labelledby="tab-general">
-    <dl class="rows">${ROWS.map(row).join("")}
-    </dl>
-    <p class="empty" hidden>No queries reported on this page. The site has to hand them to the bar: see the README.</p>
-    <button type="button" class="recap" title="Show the queries" hidden><span class="recap-text"></span><span aria-hidden="true">→</span></button>
-    <dl class="rows links-rows">
-      <div class="row">
-        <dt>Links</dt>
-        <dd class="links">
-          <a class="project" target="_blank" rel="noopener">Project <span aria-hidden="true">↗</span><span class="sr-only">(opens in a new window)</span></a>
-          <a class="docs" href="https://www.datocms.com/docs" target="_blank" rel="noopener">Documentation <span aria-hidden="true">↗</span><span class="sr-only">(opens in a new window)</span></a>
-        </dd>
-      </div>
-    </dl>
+      ${section(
+        "Environment",
+        `<dl class="rows">${row("environment", '<span data-row="environment"></span><span class="badge" data-primary="true"></span>')}
+        <div class="row"><dt>Links</dt><dd class="links">
+          <a class="project" target="_blank" rel="noopener">Project<span class="ext" aria-hidden="true">↗</span><span class="sr-only">(opens in a new window)</span></a>
+          <a class="docs" href="https://www.datocms.com/docs" target="_blank" rel="noopener">Documentation<span class="ext" aria-hidden="true">↗</span><span class="sr-only">(opens in a new window)</span></a>
+        </dd></div></dl>`,
+      )}
+      ${section(
+        "Queries on this page",
+        `<dl class="rows" data-queries>${row("calls")}${row("time")}${row("size")}${row("complexity")}${row("queryLength")}${row("cache", '<span class="cache-dot" aria-hidden="true"></span><span data-row="cache"></span>')}${row("cacheTags")}</dl>
+        <p class="flagged" data-queries hidden><span class="flag"></span><span>slow, heavy, long or large: worth a look</span></p>
+        <p class="empty">No queries reported on this page. The site has to hand them to the bar: see the README.</p>
+        <button type="button" class="go" data-go="queries" data-queries>Show the queries<span class="go-arrow" aria-hidden="true">→</span></button>`,
+      )}
+      ${section(
+        "Records on this page",
+        `<dl class="rows" data-project>${row("records")}${row("blocks")}${row("heaviest")}</dl>
+        <p class="project-note" hidden></p>
+        <button type="button" class="go" data-go="records" data-project>Show the records<span class="go-arrow" aria-hidden="true">→</span></button>`,
+      )}
     </div>
     <div class="pane" role="tabpanel" id="pane-records" data-pane="records" aria-labelledby="tab-records" hidden>
-    <div class="records-block">
-      <h3>Records on this page<span class="info"><button type="button" class="i" aria-label="About records" aria-describedby="tip-records">i</button><span class="tip" role="tooltip" id="tip-records">Records whose content the page shows, read from the Content Management API with a read-only token on the server. Dot: green published, yellow unpublished changes, hollow draft. With Visual editing on, click a record to scroll to it on the page.</span></span></h3>
-      <p class="records-note"></p>
-      <details class="block-counts" hidden>
-        <summary><span class="block-total"></span><span class="info"><button type="button" class="i" aria-label="About block counts" aria-describedby="tip-blocks">i</button><span class="tip" role="tooltip" id="tip-blocks">Every block inside the records of this page, nested ones and all locales included, counted by model. Read from the records in full, so it also counts blocks the page does not show.</span></span></summary>
-        <ul class="block-list"></ul>
-      </details>
-      <input class="records-filter" type="search" placeholder="Filter models and blocks" aria-label="Filter models and blocks" hidden>
-      <ul class="records"></ul>
-    </div>
+      <div class="records-top">
+        <p class="records-note"><span class="records-note-text"></span>${info("records", "Records whose content the page shows, read from the Content Management API with a read-only token on the server. Dot: green published, yellow unpublished changes, hollow draft. The blocks are counted inside the records, nested ones and all locales included. With Visual editing on, click a record to scroll to it on the page.")}</p>
+        <label class="records-filter-wrap" hidden><span class="search" aria-hidden="true"></span><input class="records-filter" type="search" placeholder="Filter models and blocks" aria-label="Filter models and blocks"></label>
+      </div>
+      <div class="records"></div>
+      <details class="sec block-counts" hidden><summary><span class="block-total"></span></summary><div class="sec-body"><ul class="block-list"></ul></div></details>
     </div>
     <div class="pane" role="tabpanel" id="pane-queries" data-pane="queries" aria-labelledby="tab-queries" hidden>
-    <p class="empty" hidden>No queries reported on this page. The site has to hand them to the bar: see the README.</p>
-    <ul class="queries"></ul>
+      <p class="empty">No queries reported on this page. The site has to hand them to the bar: see the README.</p>
+      <div class="queries"></div>
     </div>
     <div class="pane help" role="tabpanel" id="pane-help" data-pane="help" aria-labelledby="tab-help" hidden>
-      <h3>Keyboard shortcuts</h3>
-      <dl class="keys">
-        <div><dt><kbd>Alt</kbd><kbd>Shift</kbd><kbd>D</kbd></dt><dd>Switch between draft and published</dd></div>
-        <div><dt><kbd>Alt</kbd><kbd>Shift</kbd><kbd>V</kbd></dt><dd>Turn visual editing on and off (drafts only)</dd></div>
-        <div><dt><kbd>Alt</kbd><kbd>Shift</kbd><kbd>B</kbd></dt><dd>Open and close the bar</dd></div>
-        <div><dt><kbd>Alt</kbd> (hold)</dt><dd>Show the edit outlines, or hide them if the site keeps them on (Content Link, drafts with visual editing on)</dd></div>
-      </dl>
-      <p class="help-note">Shortcuts are ignored while you type in a field.</p>
-      <h3>How it works</h3>
-      <ul class="help-list">
-        <li>The bar writes two cookies and reloads the page; the server reads them to query DatoCMS. <code>?datocms=published</code> or <code>?datocms-visual=off</code> do the same for one page.</li>
-        <li><b>General</b>: the environment the page read, how its queries performed, and links to the project and the docs. The line under them sums up the calls: click it to read the queries.</li>
-        <li><b>Records</b>: what the page shows, by model. Green dot published, yellow unpublished changes, hollow draft. Needs a read-only CMA token on the server. With visual editing on, click a record to scroll to it.</li>
-        <li><b>Queries</b>: each query with its text and variables, ready to copy. Orange flags mark slow, heavy, long or large queries.</li>
-      </ul>
-      <p class="help-note"><a class="readme" href="https://github.com/spleenteo/datocms-dev-bar#readme" target="_blank" rel="noopener">Full guide in the README <span aria-hidden="true">↗</span><span class="sr-only">(opens in a new window)</span></a></p>
+      ${section(
+        "Keyboard shortcuts",
+        `<dl class="keys">${KEYS.map(([combo, what]) => `<div class="row"><dt>${combo.map((key) => `<kbd>${key}</kbd>`).join("")}</dt><dd>${what}</dd></div>`).join("")}</dl>
+        <p class="help-note">Shortcuts are ignored while you type in a field.</p>`,
+      )}
+      ${section(
+        "How it works",
+        `${HOW.map(([title, text]) => `<p class="how"><b>${title}</b>${text}</p>`).join("")}
+        <a class="go readme" href="https://github.com/spleenteo/datocms-dev-bar#readme" target="_blank" rel="noopener">Full guide in the README<span class="go-arrow" aria-hidden="true">↗</span><span class="sr-only">(opens in a new window)</span></a>`,
+      )}
     </div>
     <!-- Tabs at the bottom: the panel grows upwards, so they stay under the pointer when switching. -->
     <div class="tabs" role="tablist" aria-label="X-Ray">
