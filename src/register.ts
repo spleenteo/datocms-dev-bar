@@ -28,13 +28,24 @@ const PATH = "/__datocms-dev-bar";
 const KEEP_MS = 5 * 60_000;
 const LOG = "[datocms-dev-bar]";
 
-type Served = { id: string; at: number; preview: ReturnType<typeof readDevPreview>; reports: QueryReport[]; recordIds: Set<string> };
+type Served = {
+  id: string;
+  at: number;
+  /** Path and query of the request, without the router's own parameters: a navigation asks by it. */
+  url: string;
+  preview: ReturnType<typeof readDevPreview>;
+  reports: QueryReport[];
+  recordIds: Set<string>;
+  /** Resolves when the response has gone out: the queries of the request are all in. */
+  done: Promise<void>;
+};
 
 const requests = new AsyncLocalStorage<Served>();
 /** True inside our own fetch wrapper: a call that comes back to it from a layer it wraps goes straight to the base fetch. */
 const nesting = new AsyncLocalStorage<true>();
+/** The requests served lately, most recent last. */
 const served = new Map<string, Served>();
-let lastServed: Served | null = null;
+const arrivals = new Set<() => void>();
 
 // ---- the server's fetch ---------------------------------------------------------------------
 
@@ -141,66 +152,153 @@ http.Server.prototype.emit = function (this: http.Server, event: string | symbol
     void serve(req, res);
     return true;
   }
-  const context = begin(req);
+  const context = begin(req, res);
   injectBar(res, context);
   return requests.run(context, () => emit.call(this, event, req, res));
 } as typeof http.Server.prototype.emit;
 
-function begin(req: http.IncomingMessage): Served {
+function begin(req: http.IncomingMessage, res: http.ServerResponse): Served {
   const now = Date.now();
   for (const [id, entry] of served) if (now - entry.at > KEEP_MS) served.delete(id);
   const context: Served = {
     id: crypto.randomUUID(),
     at: now,
+    url: pageUrl(req.url ?? "/"),
     preview: readDevPreview({ cookie: req.headers.cookie, url: req.url }, { isDev: true }),
     reports: [],
     recordIds: new Set(),
+    done: new Promise((resolve) => {
+      res.once("finish", resolve);
+      res.once("close", resolve);
+    }),
   };
   served.set(context.id, context);
-  lastServed = context;
+  for (const notify of arrivals) notify();
   // No compression: the bar is appended to the HTML as it goes out.
   delete req.headers["accept-encoding"];
   return context;
 }
 
+// Parameters the routers add to the requests of a navigation (Next.js: _rsc).
+const ROUTER_PARAMS = ["_rsc"];
+
+function pageUrl(raw: string): string {
+  const url = new URL(raw, "http://localhost");
+  for (const name of ROUTER_PARAMS) url.searchParams.delete(name);
+  return url.pathname + url.search;
+}
+
+/** The most recent request for a page, waiting a little for one that is still being served or has not arrived. */
+async function servedFor(url: string, timeoutMs: number): Promise<Served | undefined> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const match = [...served.values()].filter((entry) => entry.url === url).pop();
+    if (match) {
+      await Promise.race([match.done, wait(Math.max(0, deadline - Date.now()))]);
+      return match;
+    }
+    if (Date.now() >= deadline) return undefined;
+    // The router may ask before its own request has reached the server.
+    await new Promise<void>((resolve) => {
+      const notify = () => {
+        arrivals.delete(notify);
+        resolve();
+      };
+      arrivals.add(notify);
+      setTimeout(notify, Math.max(0, deadline - Date.now()));
+    });
+  }
+}
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 const isHtml = (res: http.ServerResponse) => String(res.getHeader("content-type") ?? "").includes("text/html");
 
-/** Appends the bar to the HTML, at the end: the browser moves what follows `</html>` into the body. */
+/**
+ * Appends the bar to the HTML, at the end: the browser moves what follows `</html>` into the body.
+ * A Content-Length would cut it off, so an HTML response goes out without one, in chunks.
+ */
 function injectBar(res: http.ServerResponse, context: Served) {
+  const skip = () => !isHtml(res) || res.req.method === "HEAD";
+  const writeHead = res.writeHead.bind(res) as (status: number, reason?: unknown, headers?: unknown) => http.ServerResponse;
+  res.writeHead = function (status: number, reason?: unknown, headers?: unknown) {
+    if (typeof reason === "object" && reason !== null) [reason, headers] = [undefined, reason];
+    headers = withoutLength(headers as Record<string, unknown> | string[] | undefined);
+    for (const [name, value] of Object.entries(headers ?? {})) res.setHeader(name, value as string);
+    if (!skip()) res.removeHeader("content-length");
+    return writeHead(status, reason as string | undefined);
+  } as typeof res.writeHead;
   const end = res.end.bind(res) as (chunk?: unknown, encoding?: unknown, callback?: unknown) => http.ServerResponse;
   res.end = function (chunk?: unknown, encoding?: unknown, callback?: unknown) {
     if (typeof chunk === "function") [chunk, callback] = [undefined, chunk];
     if (typeof encoding === "function") [encoding, callback] = [undefined, encoding];
-    if (!isHtml(res) || (res.req as http.IncomingMessage & { method?: string }).method === "HEAD") return end(chunk, encoding, callback);
+    if (skip()) return end(chunk, encoding, callback);
     if (!res.headersSent) res.removeHeader("content-length");
     if (chunk) res.write(chunk as string | Uint8Array, encoding as BufferEncoding);
     return end(barMarkup(context.id), "utf8", callback);
   } as typeof res.end;
 }
 
+/** The headers of a writeHead call as an object, Content-Length left out when the response is HTML. */
+function withoutLength(headers: Record<string, unknown> | string[] | undefined): Record<string, unknown> | undefined {
+  if (!headers) return undefined;
+  const entries = Array.isArray(headers)
+    ? headers.flatMap((value, index) => (index % 2 === 0 ? [[String(value), headers[index + 1]] as const] : []))
+    : Object.entries(headers);
+  const html = entries.some(([name, value]) => name.toLowerCase() === "content-type" && String(value).includes("text/html"));
+  return Object.fromEntries(entries.filter(([name]) => !(html && name.toLowerCase() === "content-length")));
+}
+
+/**
+ * The bar, with the data of this request; after a navigation without reload it asks again, by page.
+ * Bottom right: the frameworks' own dev indicators sit bottom left.
+ */
 function barMarkup(id: string): string {
-  const attributes = [`data-url="${PATH}/data?id=${id}"`];
+  const attributes = [`data-url="${PATH}/data?id=${id}"`, 'position="bottom-right"'];
   const projectUrl = process.env.DATOCMS_BASE_EDITING_URL;
   if (projectUrl) attributes.push(`project-url="${escapeAttribute(projectUrl)}"`);
-  return `\n<script type="module" src="${PATH}/index.js"></script><datocms-dev-bar ${attributes.join(" ")}></datocms-dev-bar>\n`;
+  return `
+<script type="module" src="${PATH}/index.js"></script><datocms-dev-bar ${attributes.join(" ")}></datocms-dev-bar>
+<script>(() => {
+  const ask = () => document.querySelector("datocms-dev-bar")?.setAttribute("data-url", "${PATH}/data?url=" + encodeURIComponent(location.pathname + location.search) + "&t=" + Date.now());
+  for (const method of ["pushState", "replaceState"]) {
+    const original = history[method];
+    history[method] = function (...args) { const result = original.apply(this, args); queueMicrotask(ask); return result; };
+  }
+  addEventListener("popstate", ask);
+})();</script>
+`;
 }
 
 const escapeAttribute = (value: string) => value.replace(/[&"<>]/g, (c) => ({ "&": "&amp;", '"': "&quot;", "<": "&lt;", ">": "&gt;" })[c]!);
 
 let barScript: Buffer | undefined;
 
+/** The bar's bundle: next to this file in dist; from src (the tests) the built one. */
+function readBarScript(): Buffer {
+  for (const candidate of ["./index.js", "../dist/index.js"]) {
+    try {
+      return readFileSync(new URL(candidate, import.meta.url));
+    } catch {
+      // try the next one
+    }
+  }
+  throw new Error("the bar's script is not built: run npm run build");
+}
+
 /** `/__datocms-dev-bar/index.js`: the bar. `/__datocms-dev-bar/data?id=…`: what one page's queries said. */
 async function serve(req: http.IncomingMessage, res: http.ServerResponse) {
   const url = new URL(req.url ?? "/", "http://localhost");
   try {
     if (url.pathname === `${PATH}/index.js`) {
-      barScript ??= readFileSync(new URL("./index.js", import.meta.url));
+      barScript ??= readBarScript();
       res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-store" });
       return res.end(barScript);
     }
     if (url.pathname === `${PATH}/data`) {
       const id = url.searchParams.get("id");
-      const context = id ? served.get(id) : lastServed;
+      const page = url.searchParams.get("url");
+      const context = id ? served.get(id) : page ? await servedFor(pageUrl(page), 10_000) : undefined;
       const queries = context?.reports ?? [];
       const token = process.env.DATOCMS_DEVTOOLS_TOKEN;
       const project =
