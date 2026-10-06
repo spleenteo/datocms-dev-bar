@@ -251,10 +251,13 @@ function withoutLength(headers: Record<string, unknown> | string[] | undefined):
 
 /**
  * The bar, with the data of this request; after a navigation without reload it asks again, by page.
- * Bottom right: the frameworks' own dev indicators sit bottom left.
+ * Bottom left, raised above the corner where the frameworks' own dev indicators sit; the environment
+ * can move it (DATOCMS_DEV_BAR_POSITION: bottom-left | bottom-right, DATOCMS_DEV_BAR_BOTTOM: a CSS length).
  */
 function barMarkup(id: string): string {
-  const attributes = [`data-url="${PATH}/data?id=${id}"`, 'position="bottom-right"'];
+  const position = process.env.DATOCMS_DEV_BAR_POSITION === "bottom-right" ? "bottom-right" : "bottom-left";
+  const bottom = process.env.DATOCMS_DEV_BAR_BOTTOM?.trim() || "200px";
+  const attributes = [`data-url="${PATH}/data?id=${id}"`, `position="${position}"`, `style="--dev-bar-bottom: ${escapeAttribute(bottom)}"`];
   const projectUrl = process.env.DATOCMS_BASE_EDITING_URL;
   if (projectUrl) attributes.push(`project-url="${escapeAttribute(projectUrl)}"`);
   return `

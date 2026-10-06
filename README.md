@@ -48,7 +48,7 @@ Then the environment, in your local env file and never in production:
 | `DATOCMS_BASE_EDITING_URL` | your DatoCMS admin URL, `https://your-project.admin.datocms.com`: for Content Link and for the links in the panel |
 | `DATOCMS_DEVTOOLS_TOKEN` | optional: a read-only Content Management API token, for the Records tab. See [Records](#records-needs-a-read-only-cma-token) |
 
-Start the server, open the site: the bar sits bottom right.
+Start the server, open the site: the bar sits bottom left, 200 px up from the edge so the framework's own dev indicator keeps its corner. `DATOCMS_DEV_BAR_POSITION=bottom-right` moves it, `DATOCMS_DEV_BAR_BOTTOM=12px` (any CSS length) lowers or raises it.
 
 ## How it works
 

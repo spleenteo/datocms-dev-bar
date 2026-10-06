@@ -61,7 +61,7 @@ describe("register", () => {
     const html = await page.text();
     expect(html).toContain("</html>");
     expect(html).toContain('<script type="module" src="/__datocms-dev-bar/index.js"></script>');
-    expect(html).toMatch(/<datocms-dev-bar data-url="\/__datocms-dev-bar\/data\?id=[^"]+" position="bottom-right"><\/datocms-dev-bar>/);
+    expect(html).toMatch(/<datocms-dev-bar data-url="\/__datocms-dev-bar\/data\?id=[^"]+" position="bottom-left" style="--dev-bar-bottom: 200px"><\/datocms-dev-bar>/);
     expect(html).toContain("encoding=none");
     expect(page.headers.get("content-length")).toBeNull();
     expect(await (await get("/json")).text()).toBe('{"ok":true}');
@@ -101,6 +101,15 @@ describe("register", () => {
     const none = await (await get("/__datocms-dev-bar/data?url=%2Fnever&t=1")).json();
     expect(none.queries).toEqual([]);
   }, 15_000);
+
+  it("moves the bar where the environment says", async () => {
+    process.env.DATOCMS_DEV_BAR_POSITION = "bottom-right";
+    process.env.DATOCMS_DEV_BAR_BOTTOM = "12px";
+    const html = await (await get("/page")).text();
+    expect(html).toContain('position="bottom-right" style="--dev-bar-bottom: 12px"');
+    delete process.env.DATOCMS_DEV_BAR_POSITION;
+    delete process.env.DATOCMS_DEV_BAR_BOTTOM;
+  });
 
   it("serves the bar's script", async () => {
     const script = await get("/__datocms-dev-bar/index.js");
