@@ -145,6 +145,9 @@ function recordItem(record: RecordInfo, head?: HTMLElement[]): HTMLElement {
   if (title) title.title = record.title!;
   const when = el("span", "r-when", ago(record.updatedAt));
   if (record.updatedAt) when.title = `Updated ${record.updatedAt}`;
+  // How many blocks the record holds, against the cap DatoCMS puts on one record.
+  const blocks = record.blockCount ? el("span", "r-blocks", `${record.blockCount} ${record.blockCount === 1 ? "block" : "blocks"}`) : null;
+  if (blocks) blocks.title = "Blocks in this record, nested and all locales";
   item.dataset.search = [record.model, record.modelApiKey, record.title, record.block ? "block" : "record", STATUS_LABEL[record.status]]
     .filter(Boolean)
     .join(" ")
@@ -153,11 +156,14 @@ function recordItem(record: RecordInfo, head?: HTMLElement[]): HTMLElement {
   const main = el("div", "r-main");
   const top = el("div", "r-head");
   if (head) {
-    top.append(...head, when);
+    top.append(...head);
+    if (blocks) top.append(blocks);
+    top.append(when);
     main.append(top);
     if (title) main.append(title);
   } else {
     if (title) top.append(title);
+    if (blocks) top.append(blocks);
     top.append(when);
     main.append(top);
   }

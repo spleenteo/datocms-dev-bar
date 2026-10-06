@@ -108,7 +108,8 @@ test("General shows the environment, how the queries performed, and a line per q
   await expect(general.locator("[data-row=complexity]")).toHaveText("1,500,000 of 21,294,900 (highest)");
   await expect(general.locator("[data-row=cache]")).toHaveText("Partly, 1 of 2 from cache");
   await expect(general.locator("[data-row=cacheTags]")).toHaveText("Active on all 2");
-  await expect(general.locator(".rows .i")).toHaveCount(7);
+  await expect(general.locator(".rows .i")).toHaveCount(8);
+  await expect(general.locator("[data-row=blocks]")).toHaveText("7 in 3 records, up to 5 in Home page");
   await expect(general.locator("[data-row=size]")).toHaveText("257 KB in total, largest 254 KB");
   await general.locator(".i").first().hover();
   await expect(control(page, "#tip-environment")).toBeVisible();
@@ -151,6 +152,7 @@ test("records are grouped by model and can be filtered", async ({ page }) => {
   await expect(menu.locator(".r-count")).toHaveText("×2");
   await expect(menu.locator("summary .r-dot")).toHaveAttribute("aria-label", "1 not published");
   await expect(menu.locator(".r-title")).toHaveText(["Pricing", "Blog"]);
+  await expect(groups.nth(0).locator(".r-blocks")).toHaveText("5 blocks");
   const edit = groups.nth(0).locator(".r-edit");
   await expect(edit).toHaveAttribute("aria-label", "Edit in DatoCMS (opens in a new window)");
   await expect(edit.locator("svg")).toHaveCount(1);

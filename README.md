@@ -19,7 +19,7 @@ It loads into your development server and needs no change to your code: it watch
 
 | Tab | What it shows | Needs |
 |---|---|---|
-| General | environment (primary or not), response time, response size, complexity, query length, CDN cache, cache tags, a recap of the calls that opens the Queries tab, links to the project and the docs | nothing |
+| General | environment (primary or not), response time, response size, complexity, query length, CDN cache, blocks in the page's records, cache tags, a recap of the calls that opens the Queries tab, links to the project and the docs | nothing |
 | Records | the records and blocks the page shows, grouped by model, with status, title and last change; a filter; a click scrolls to the content | a read-only CMA token |
 | Queries | each query with its text and variables, ready to copy; flags on slow, heavy, long or large ones | nothing |
 | Help | keyboard shortcuts and a short guide | nothing |
@@ -112,6 +112,8 @@ A rule limited to one environment hides the records of the others: the panel the
 The records come from the query results: every `id` in them, plus the records behind the Content Link metadata when visual editing is on (the preload uses `@datocms/content-link` for that when your site has it). At most 100 IDs are looked up per page; IDs of uploads simply come back empty. Environments and models are kept for a minute, title fields for ten; records are read on every load.
 
 What the tab shows, per model: records and blocks, a dot for the status (green published, yellow unpublished changes, hollow draft), the title (the model's title field, or a field named `title`, `name`, `label`, `heading`, `question` or `internal_name`), the last change, and a pencil that opens the record in DatoCMS. Blocks have no pencil: they live inside a record. The filter searches model names, API keys, titles and statuses (`unpublished` finds the records with changes to publish).
+
+Each record shows how many blocks it holds, nested ones and all locales included, and the General tab sums them up and names the record with the most: DatoCMS caps the blocks of a single record (500 by default; the cap depends on the plan), so that is the one to watch.
 
 With the token, the Environment badge also becomes a fact: DatoCMS says whether the environment is the primary one.
 

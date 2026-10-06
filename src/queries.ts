@@ -180,6 +180,7 @@ function parseProject(value: unknown): ProjectInfo | null {
           // Only links to DatoCMS: the address ends up in an `href`.
           editUrl: typeof r.editUrl === "string" && /^https:\/\//.test(r.editUrl) ? r.editUrl : null,
           anchor: parseAnchor(r.anchor),
+          blockCount: count(r.blockCount),
         }),
       ),
     moreRecords: count(value.moreRecords) ?? 0,
@@ -332,6 +333,20 @@ export function assessReport(report: QueryReport): Flag[] {
     });
   }
   return flags;
+}
+
+/**
+ * The blocks of the page's records in one line, for the Blocks row of the General tab: the total, and the
+ * record that holds the most, since DatoCMS caps the blocks of a single record.
+ */
+export function describeBlocks(project: ProjectInfo): string {
+  const records = project.records.filter((r) => !r.block && r.blockCount !== null);
+  if (records.length === 0) return NOT_AVAILABLE;
+  const total = records.reduce((sum, r) => sum + (r.blockCount ?? 0), 0);
+  if (total === 0) return `none in ${records.length === 1 ? "the record" : `${records.length} records`}`;
+  const most = records.reduce((best, r) => ((r.blockCount ?? 0) > (best.blockCount ?? 0) ? r : best));
+  const name = most.title ?? most.model ?? most.id;
+  return records.length === 1 ? `${number(total)} in ${name}` : `${number(total)} in ${records.length} records, up to ${number(most.blockCount ?? 0)} in ${name}`;
 }
 
 /** The calls of the page in one line, for the recap of the General tab: how many, how many distinct queries, their weight, how many flagged. */

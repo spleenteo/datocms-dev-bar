@@ -19,6 +19,11 @@ export type RecordInfo = {
   updatedAt: string | null;
   editUrl: string | null;
   /**
+   * Blocks inside the record, nested ones and all locales included: what DatoCMS counts against its
+   * cap per record (500 by default; it depends on the plan). Null for a block.
+   */
+  blockCount: number | null;
+  /**
    * Where Content Link points for this content: the record itself, or for a block the record that holds it
    * and the field path down to the block (e.g. `content.3`). Used to find it on the page.
    */
@@ -227,9 +232,10 @@ export async function fetchProjectInfo(options: FetchProjectInfoOptions): Promis
     const nestedBlocks = new Set<string>();
     const holders = new Map<string, { parentId: string; segment: string }>();
     const counts = new Map<string, number>();
+    const blocksOf = new Map<string, number>();
     const isBlock = (id: string) => nestedBlocks.has(id) || isBlockModel(typeOf(byId.get(id)));
     // A single-block field gives `field`, a list `field.index`, a localized value `field.locale…`.
-    const visit = (parentId: string, segment: string, value: unknown, count: boolean, depth: number): void => {
+    const visit = (rootId: string, parentId: string, segment: string, value: unknown, count: boolean, depth: number): void => {
       if (depth > 20 || value === null || typeof value !== "object") {
         if (typeof value === "string" && isBlockModel(typeOf(byId.get(value)))) holders.set(value, { parentId, segment });
         return;
@@ -239,17 +245,20 @@ export async function fetchProjectInfo(options: FetchProjectInfoOptions): Promis
         const id = String(node.id);
         nestedBlocks.add(id);
         if (!holders.has(id)) holders.set(id, { parentId, segment });
-        if (count) counts.set(typeOf(node)!, (counts.get(typeOf(node)!) ?? 0) + 1);
-        for (const [field, child] of Object.entries(node.attributes ?? {})) visit(id, field, child, count, depth + 1);
+        if (count) {
+          counts.set(typeOf(node)!, (counts.get(typeOf(node)!) ?? 0) + 1);
+          blocksOf.set(rootId, (blocksOf.get(rootId) ?? 0) + 1);
+        }
+        for (const [field, child] of Object.entries(node.attributes ?? {})) visit(rootId, id, field, child, count, depth + 1);
         return;
       }
       const entries = Array.isArray(value) ? value.map((child, index) => [String(index), child] as const) : Object.entries(value);
-      for (const [key, child] of entries) visit(parentId, `${segment}.${key}`, child, count, depth + 1);
+      for (const [key, child] of entries) visit(rootId, parentId, `${segment}.${key}`, child, count, depth + 1);
     };
     for (const item of items) {
       // Only records count their blocks: a block fetched on its own is already inside its record.
       const count = !isBlockModel(typeOf(item));
-      for (const [field, value] of Object.entries(item.attributes ?? {})) visit(String(item.id), field, value, count, 0);
+      for (const [field, value] of Object.entries(item.attributes ?? {})) visit(String(item.id), String(item.id), field, value, count, 0);
     }
     info.blockCounts = [...counts]
       .map(([typeId, total]) => ({ model: models.get(typeId)?.name || typeId, modelApiKey: models.get(typeId)?.apiKey || null, count: total }))
@@ -283,6 +292,7 @@ export async function fetchProjectInfo(options: FetchProjectInfoOptions): Promis
         updatedAt: typeof item.meta?.updated_at === "string" ? item.meta.updated_at : null,
         anchor: anchorOf(id),
         editUrl: !block && base && typeId ? `${base}${envPath}/editor/item_types/${typeId}/items/${id}/edit` : null,
+        blockCount: block ? null : (blocksOf.get(id) ?? 0),
       });
     }
   } catch (error) {

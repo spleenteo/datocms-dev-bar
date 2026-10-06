@@ -73,6 +73,7 @@ describe("fetchProjectInfo", () => {
         updatedAt: "2026-10-05T10:00:00Z",
         editUrl: "https://p.admin.datocms.com/environments/fork/editor/item_types/T1/items/R1/edit",
         anchor: { recordId: "R1", fieldPath: "" },
+        blockCount: 0,
       },
       {
         id: "B2",
@@ -84,6 +85,7 @@ describe("fetchProjectInfo", () => {
         updatedAt: null,
         editUrl: null,
         anchor: { recordId: "R1", fieldPath: "buttons.0" },
+        blockCount: null,
       },
     ]);
     expect(info.blocks).toBe(1);
@@ -166,5 +168,7 @@ describe("block counts", () => {
       { model: "Section", modelApiKey: "section", count: 1 },
     ]);
     expect(info.records.find((r) => r.id === "S1")?.anchor).toEqual({ recordId: "P1", fieldPath: "content.it.0" });
+    // The page holds the section, its two buttons and the English button; the section is a block and counts none
+    expect(info.records.map((r) => [r.id, r.blockCount])).toEqual([["P1", 4], ["S1", null]]);
   });
 });

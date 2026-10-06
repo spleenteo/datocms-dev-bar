@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { assessReport, describeCalls, describeWeight, formatBytes, parseDevBarData, readQueryReport, serializeDevBarData, summarizeReports, type QueryReport } from "../src/queries";
+import type { ProjectInfo, RecordInfo } from "../src/project";
+import { assessReport, describeBlocks, describeCalls, describeWeight, formatBytes, parseDevBarData, readQueryReport, serializeDevBarData, summarizeReports, type QueryReport } from "../src/queries";
 
 const headers = (values: Record<string, string>) => ({ get: (name: string) => values[name.toLowerCase()] ?? null });
 
@@ -150,6 +151,17 @@ describe("assessReport", () => {
   it("can flag several things at once and ignores missing numbers", () => {
     expect(assessReport(report({ timingsTotalMs: 900, queryLength: 11_000 })).map((f) => f.kind)).toEqual(["slow", "near-limit"]);
     expect(assessReport(report({ timingsTotalMs: null, complexity: null, queryLength: null }))).toEqual([]);
+  });
+});
+
+describe("describeBlocks", () => {
+  const rec = (id: string, blockCount: number | null, block = false): RecordInfo => ({ id, model: "Page", modelApiKey: "page", title: `T${id}`, block, status: "published", updatedAt: null, editUrl: null, anchor: null, blockCount });
+  const project = (records: RecordInfo[]): ProjectInfo => ({ environments: [], records, moreRecords: 0, blocks: 0, blockCounts: [], error: null });
+  it("sums the blocks and names the record with the most", () => {
+    expect(describeBlocks(project([rec("1", 12), rec("2", 480), rec("3", null, true)]))).toBe("492 in 2 records, up to 480 in T2");
+    expect(describeBlocks(project([rec("1", 7)]))).toBe("7 in T1");
+    expect(describeBlocks(project([rec("1", 0), rec("2", 0)]))).toBe("none in 2 records");
+    expect(describeBlocks(project([rec("3", null, true)]))).toBe("n/a");
   });
 });
 

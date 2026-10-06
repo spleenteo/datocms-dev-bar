@@ -12,6 +12,7 @@ import type { ProjectInfo } from "../project";
 import {
   NOT_AVAILABLE,
   assessReport,
+  describeBlocks,
   describeCalls,
   describeWeight,
   parseDevBarData,
@@ -207,12 +208,16 @@ export class DevBar extends Base {
     const summary = summarizeReports(this.reports);
     const none = this.reports.length === 0;
     this.answered = none || summary.environment === NOT_AVAILABLE ? null : summary.environment;
+    // Environment and Blocks have their own sources: the attributes and the project data.
     root.querySelectorAll<HTMLElement>("[data-row]").forEach((cell) => {
-      const key = cell.dataset.row as keyof SummaryRows;
-      if (key !== "environment") cell.textContent = summary[key] ?? "";
+      const key = cell.dataset.row as keyof SummaryRows | "environment" | "blocks";
+      if (key !== "environment" && key !== "blocks") cell.textContent = summary[key] ?? "";
     });
     root.querySelectorAll<HTMLElement>(".empty").forEach((note) => (note.hidden = !none));
     root.querySelectorAll<HTMLElement>("[data-queries]").forEach((row) => (row.hidden = none));
+    const project = this.project && !this.project.error ? this.project : null;
+    root.querySelectorAll<HTMLElement>("[data-project]").forEach((row) => (row.hidden = project === null));
+    root.querySelector<HTMLElement>('[data-row="blocks"]')!.textContent = project ? describeBlocks(project) : "";
     const counts: Record<string, number | null> = {
       records: this.project && !this.project.error ? this.project.records.length : null,
       queries: this.reports.length,

@@ -31,6 +31,11 @@ const ROWS = [
     tip: "Whether the DatoCMS CDN answered from its cache (cf-cache-status). HIT: served from cache. MISS: computed now and stored for next time. BYPASS: caching skipped, as with drafts.",
   },
   {
+    key: "blocks",
+    label: "Blocks",
+    tip: "Blocks inside the records of this page, nested ones and all locales included, and the record that holds the most. DatoCMS caps the blocks a single record can hold (500 by default; the cap depends on the plan), so the heaviest record is the one to watch. Needs the CMA token.",
+  },
+  {
     key: "cacheTags",
     label: "Cache tags",
     tip: "Tags that let your site clear cached pages when content changes (x-cache-tags). Active: DatoCMS returned them. Not requested: the query did not ask, and drafts never do. Missing: asked for, none came back. The bar cannot see whether your invalidation webhook is set up.",
@@ -38,7 +43,7 @@ const ROWS = [
 ];
 
 const row = ({ key, label, tip }: (typeof ROWS)[number]) => `
-      <div class="row"${key === "environment" ? "" : " data-queries"}>
+      <div class="row"${key === "environment" ? "" : key === "blocks" ? " data-project" : " data-queries"}>
         <dt>${label}<span class="info"><button type="button" class="i" aria-label="About ${label}" aria-describedby="tip-${key}">i</button><span class="tip" role="tooltip" id="tip-${key}">${tip}</span></span></dt>
         <dd><span data-row="${key}"></span>${key === "environment" ? '<span class="badge" data-primary="true"></span>' : ""}</dd>
       </div>`;

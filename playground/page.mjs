@@ -16,10 +16,10 @@ const SAMPLE_REPORTS = [
 const SAMPLE_PROJECT = {
   environments: [{ name: "main", primary: true }],
   records: [
-    { id: "1", model: "Home page", modelApiKey: "home_page", title: null, block: false, status: "published", updatedAt: "2026-10-01T10:00:00Z", editUrl: "https://example.admin.datocms.com/editor/item_types/1/items/1/edit" },
-    { id: "2", model: "Menu item", modelApiKey: "menu_item", title: "Pricing", block: false, status: "updated", updatedAt: "2026-10-04T10:00:00Z", editUrl: "https://example.admin.datocms.com/editor/item_types/2/items/2/edit", anchor: { recordId: "2", fieldPath: "" } },
-    { id: "4", model: "Menu item", modelApiKey: "menu_item", title: "Blog", block: false, status: "published", updatedAt: "2026-09-20T10:00:00Z", editUrl: "https://example.admin.datocms.com/editor/item_types/2/items/4/edit" },
-    { id: "3", model: "Button", modelApiKey: "button", title: "Start free trial", block: true, status: "published", updatedAt: null, editUrl: null },
+    { id: "1", model: "Home page", modelApiKey: "home_page", title: null, block: false, status: "published", updatedAt: "2026-10-01T10:00:00Z", editUrl: "https://example.admin.datocms.com/editor/item_types/1/items/1/edit", blockCount: 5 },
+    { id: "2", model: "Menu item", modelApiKey: "menu_item", title: "Pricing", block: false, status: "updated", updatedAt: "2026-10-04T10:00:00Z", editUrl: "https://example.admin.datocms.com/editor/item_types/2/items/2/edit", anchor: { recordId: "2", fieldPath: "" }, blockCount: 1 },
+    { id: "4", model: "Menu item", modelApiKey: "menu_item", title: "Blog", block: false, status: "published", updatedAt: "2026-09-20T10:00:00Z", editUrl: "https://example.admin.datocms.com/editor/item_types/2/items/4/edit", blockCount: 1 },
+    { id: "3", model: "Button", modelApiKey: "button", title: "Start free trial", block: true, status: "published", updatedAt: null, editUrl: null, blockCount: null },
   ],
   moreRecords: 0,
   blocks: 1,
