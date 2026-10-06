@@ -85,12 +85,12 @@ async function watch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
   headers.delete("X-Include-Drafts");
   headers.delete("X-Visual-Editing");
   headers.delete("X-Base-Editing-Url");
-  const editingUrl = process.env.DATOCMS_BASE_EDITING_URL;
+  const base = editingUrl();
   if (mode === "draft") {
     headers.set("X-Include-Drafts", "true");
-    if (visualEditing && editingUrl) {
+    if (visualEditing && base) {
       headers.set("X-Visual-Editing", "v1");
-      headers.set("X-Base-Editing-Url", editingUrl);
+      headers.set("X-Base-Editing-Url", base);
     }
   }
   const token = process.env.DATOCMS_DEV_BAR_CDA_TOKEN;
@@ -299,7 +299,7 @@ function barMarkup(id: string): string {
   const position = process.env.DATOCMS_DEV_BAR_POSITION === "bottom-right" ? "bottom-right" : "bottom-left";
   const bottom = process.env.DATOCMS_DEV_BAR_BOTTOM?.trim() || "200px";
   const attributes = [`data-url="${PATH}/data?id=${id}"`, `position="${position}"`, `style="--dev-bar-bottom: ${escapeAttribute(bottom)}"`];
-  const projectUrl = process.env.DATOCMS_BASE_EDITING_URL;
+  const projectUrl = editingUrl();
   if (projectUrl) attributes.push(`project-url="${escapeAttribute(projectUrl)}"`);
   return `
 <script type="module" src="${PATH}/index.js"></script><datocms-dev-bar ${attributes.join(" ")}></datocms-dev-bar>
@@ -312,6 +312,24 @@ function barMarkup(id: string): string {
   addEventListener("popstate", ask);
 })();</script>
 `;
+}
+
+let editingUrlWarned = false;
+
+/** DATOCMS_BASE_EDITING_URL when it is a real address: a placeholder left in the env file is reported once and ignored. */
+function editingUrl(): string | undefined {
+  const value = process.env.DATOCMS_BASE_EDITING_URL?.trim();
+  if (!value) return undefined;
+  try {
+    if (/^https?:$/.test(new URL(value).protocol)) return value;
+  } catch {
+    // not an address
+  }
+  if (!editingUrlWarned) {
+    console.info(`${LOG} DATOCMS_BASE_EDITING_URL is not an address: "${value}". Set it to your project's admin URL, https://<project>.admin.datocms.com.`);
+    editingUrlWarned = true;
+  }
+  return undefined;
 }
 
 const escapeAttribute = (value: string) => value.replace(/[&"<>]/g, (c) => ({ "&": "&amp;", '"': "&quot;", "<": "&lt;", ">": "&gt;" })[c]!);
@@ -351,7 +369,7 @@ async function serve(req: http.IncomingMessage, res: http.ServerResponse) {
               token,
               environment: queries.find((report) => report.environment)?.environment,
               recordIds: [...context.recordIds],
-              projectUrl: process.env.DATOCMS_BASE_EDITING_URL,
+              projectUrl: editingUrl(),
             })
           : null;
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });

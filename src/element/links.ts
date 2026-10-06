@@ -1,7 +1,7 @@
 /** Link to the DatoCMS project, or to one of its environments. Only a web address: it ends up in an `href`. */
 export function projectHref(projectUrl: string | null, environment: string | null): string | null {
   const base = projectUrl?.trim().replace(/\/+$/, "");
-  if (!base || !/^https?:\/\//i.test(base)) return null;
+  if (!base || !isWebUrl(base)) return null;
   const env = environment?.trim();
   return env ? `${base}/environments/${encodeURIComponent(env)}` : base;
 }
@@ -16,4 +16,13 @@ export type EnvironmentInfo = { name: string | null; primary: boolean };
 export function environmentInfo(environment: string | null, markedPrimary: boolean): EnvironmentInfo {
   const name = environment?.trim() || null;
   return { name, primary: name === null || markedPrimary };
+}
+
+/** A valid http(s) address: a placeholder like `http://<your-project>.admin.datocms.com` is not one. */
+function isWebUrl(value: string): boolean {
+  try {
+    return /^https?:$/.test(new URL(value).protocol);
+  } catch {
+    return false;
+  }
 }
