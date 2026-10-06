@@ -73,10 +73,12 @@ Every call to the Content Delivery API goes out with `cache: "no-store"` while t
 
 The bar shows only on `localhost`, `127.0.0.1`, `[::1]` and hosts ending in `.local`, `.localhost` or `.test`. The preload loads only where you put it, the `dev` script: nothing of the package is imported by your code, so nothing of it is in your build.
 
+On Next.js the bar also drives the framework's draft mode: in draft the preload hands the request the `__prerender_bypass` cookie with the id of the dev server, so `draftMode()` says enabled and whatever your site does in draft (its `<ContentLink>`, its draft token) follows the switch; in published the cookie is removed.
+
 ### Limits
 
 - Node only. A dev server that runs your code elsewhere (an edge sandbox, a worker, a Cloudflare `workerd`) is not seen: use the [manual integration](#manual-integration).
-- Your site's own draft logic is untouched. The bar decides what DatoCMS answers, not what your code renders around it: a `<ContentLink>` controller that your site mounts only in its own draft mode stays unmounted, and with it the outlines and the "scroll to the content" of the Records tab.
+- Outside Next.js, your site's own draft logic is untouched. The bar decides what DatoCMS answers, not what your code renders around it: a Content Link controller that your site mounts only in its own draft mode stays unmounted, and with it the outlines and the "scroll to the content" of the Records tab.
 - The bar is appended after `</html>`; browsers move it into the body. Compression is turned off for the pages that get it.
 
 ## The X-Ray panel

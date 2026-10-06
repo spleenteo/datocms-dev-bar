@@ -14,7 +14,7 @@
  * (an edge sandbox, a worker) is not seen.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import http from "node:http";
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -160,11 +160,13 @@ http.Server.prototype.emit = function (this: http.Server, event: string | symbol
 function begin(req: http.IncomingMessage, res: http.ServerResponse): Served {
   const now = Date.now();
   for (const [id, entry] of served) if (now - entry.at > KEEP_MS) served.delete(id);
+  const preview = readDevPreview({ cookie: req.headers.cookie, url: req.url }, { isDev: true });
+  followDraftMode(req, preview.mode === "draft");
   const context: Served = {
     id: crypto.randomUUID(),
     at: now,
     url: pageUrl(req.url ?? "/"),
-    preview: readDevPreview({ cookie: req.headers.cookie, url: req.url }, { isDev: true }),
+    preview,
     reports: [],
     recordIds: new Set(),
     done: new Promise((resolve) => {
@@ -177,6 +179,45 @@ function begin(req: http.IncomingMessage, res: http.ServerResponse): Served {
   // No compression: the bar is appended to the HTML as it goes out.
   delete req.headers["accept-encoding"];
   return context;
+}
+
+/**
+ * Next.js: its draft mode follows the bar. The site's own draft logic (what it renders in draft, which
+ * token it uses) then switches with the bar's cookies, without a line of code. Draft mode is on when
+ * the `__prerender_bypass` cookie carries the id the dev server generated: the preload reads it from
+ * the prerender manifest and writes or removes the cookie on the way in. Other frameworks: nothing to do.
+ */
+const BYPASS_COOKIE = "__prerender_bypass";
+const MANIFESTS = [".next/dev/prerender-manifest.json", ".next/prerender-manifest.json"];
+let previewModeId: string | undefined;
+
+/** Kept once found: the id lasts as long as the dev server. Until then the manifest is looked for on each request. */
+function nextPreviewModeId(): string | undefined {
+  if (previewModeId) return previewModeId;
+  for (const manifest of MANIFESTS) {
+    const path = join(process.cwd(), manifest);
+    if (!existsSync(path)) continue;
+    try {
+      const id = (JSON.parse(readFileSync(path, "utf8")) as { preview?: { previewModeId?: string } }).preview?.previewModeId;
+      if (typeof id === "string" && id) previewModeId = id;
+    } catch {
+      // not a manifest we can read: no draft mode to follow
+    }
+    break;
+  }
+  return previewModeId;
+}
+
+function followDraftMode(req: http.IncomingMessage, draft: boolean) {
+  const id = nextPreviewModeId();
+  if (!id) return;
+  const others = (req.headers.cookie ?? "")
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part && !part.startsWith(`${BYPASS_COOKIE}=`));
+  if (draft) others.push(`${BYPASS_COOKIE}=${id}`);
+  if (others.length) req.headers.cookie = others.join("; ");
+  else delete req.headers.cookie;
 }
 
 // Parameters the routers add to the requests of a navigation (Next.js: _rsc).

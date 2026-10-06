@@ -64,13 +64,13 @@ export const STYLES = `
 /* The X-Ray panel: light, in the style of the DatoCMS interface. */
 .panel {
   --purple: #6E3FF3; --purple-soft: #EDE8FF; --surface: #F3F3F5; --border: #E6E6EA; --ink: #1D1D1B; --grey: #6F6F75; --green: #51C21A; --amber: #F5A623;
-  pointer-events: auto; position: absolute; left: 60px; bottom: calc(100% + 8px); box-sizing: border-box;
-  width: min(400px, calc(100vw - 72px)); border-radius: 8px; background: #fff; color: var(--ink); border: 1px solid var(--border);
+  pointer-events: auto; position: absolute; left: 33px; bottom: calc(100% + 8px); box-sizing: border-box;
+  width: min(400px, calc(100vw - 45px)); border-radius: 8px; background: #fff; color: var(--ink); border: 1px solid var(--border);
   box-shadow: 0 8px 24px rgb(0 0 0 / .15); visibility: hidden; opacity: 0; overflow: hidden;
   font-size: 13px; font-weight: 500; line-height: 1.3;
   transition: opacity 200ms var(--ease), visibility 200ms;
 }
-.wrap[data-position="right"] .panel { left: auto; right: 60px; }
+.wrap[data-position="right"] .panel { left: auto; right: 33px; }
 .wrap[data-open][data-advanced] .panel { visibility: visible; opacity: 1; }
 .pane { max-height: min(70vh, 640px); overflow: auto; }
 .panel b, .panel strong { font-weight: 700; }
@@ -113,7 +113,8 @@ export const STYLES = `
 }
 .go:hover { background: #E2DAFF; }
 
-.records-top { padding: 12px 16px 8px; }
+/* Note and filter stay put while the models and records scroll under them. */
+.records-top { position: sticky; top: 0; z-index: 1; padding: 12px 16px 8px; background: #fff; border-bottom: 1px solid var(--border); }
 .records-note { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0; }
 .records-filter-wrap { position: relative; display: block; margin-top: 8px; }
 .search { position: absolute; left: 10px; top: 50%; width: 12px; height: 12px; margin-top: -7px; border: 1.5px solid var(--grey); border-radius: 50%; box-sizing: border-box; }

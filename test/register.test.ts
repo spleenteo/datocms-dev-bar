@@ -1,4 +1,7 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import http from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // Importing the preload patches fetch and http.Server for this test process (vitest keeps each file in its own).
@@ -6,6 +9,7 @@ import "../src/register";
 
 type Seen = { url: string; headers: Headers; body: string };
 const seen: Seen[] = [];
+const cookiesSeen: (string | undefined)[] = [];
 
 // Stands in for a framework's patched fetch (Next.js): set after the preload, it is what the wrapper calls.
 // Anything else goes back through the global fetch, as such a patch does, and must reach the network.
@@ -32,6 +36,11 @@ let origin: string;
 beforeAll(async () => {
   server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (url.pathname === "/cookies") {
+      cookiesSeen.push(req.headers.cookie);
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      return res.end("ok");
+    }
     if (url.pathname === "/json") {
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end('{"ok":true}');
@@ -91,6 +100,22 @@ describe("register", () => {
     expect(seen[0].headers.get("x-base-editing-url")).toBe("https://p.admin.datocms.com");
     delete process.env.DATOCMS_DEV_BAR_CDA_TOKEN;
     delete process.env.DATOCMS_BASE_EDITING_URL;
+  });
+
+  it("drives Next.js draft mode through its bypass cookie when a prerender manifest is there", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "dev-bar-"));
+    mkdirSync(join(dir, ".next", "dev"), { recursive: true });
+    writeFileSync(join(dir, ".next", "dev", "prerender-manifest.json"), JSON.stringify({ preview: { previewModeId: "abc123" } }));
+    const cwd = process.cwd();
+    process.chdir(dir);
+    try {
+      await get("/cookies", "datocms-mode=draft; other=1");
+      expect(cookiesSeen.pop()).toBe("datocms-mode=draft; other=1; __prerender_bypass=abc123");
+      await get("/cookies", "__prerender_bypass=stale; datocms-mode=published");
+      expect(cookiesSeen.pop()).toBe("datocms-mode=published");
+    } finally {
+      process.chdir(cwd);
+    }
   });
 
   it("answers by page, waiting for a request that is still being served", async () => {
