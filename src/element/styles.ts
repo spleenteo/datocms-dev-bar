@@ -174,14 +174,14 @@ kbd { display: inline-block; min-width: 14px; padding: 1px 6px; border: 1px soli
 .panel .i:hover { color: var(--ink); border-color: var(--ink); }
 .tip-line { display: block; }
 .tip-line + .tip-line { margin-top: 4px; }
+/* Tooltips are placed by the bar in viewport coordinates, so the panel's scrolling and clipping never cut them. */
 .tip {
-  position: absolute; left: -8px; bottom: calc(100% + 8px); z-index: 2; box-sizing: border-box; width: 260px; padding: 8px 10px;
-  border-radius: 8px; background: #fff; color: #1D1D1B; font-size: 12px; font-weight: 500; line-height: 1.4;
+  position: fixed; left: 0; top: 0; z-index: 2147483001; box-sizing: border-box; width: min(260px, 100vw - 16px); padding: 8px 10px;
+  border-radius: 8px; background: #fff; color: #1D1D1B; font-size: 12px; font-weight: 500; line-height: 1.4; text-align: left;
   box-shadow: 0 4px 16px rgb(0 0 0 / .3); visibility: hidden; opacity: 0; pointer-events: none;
 }
 .panel .tip { background: var(--ink); color: #fff; }
 .info:hover .tip, .info:focus-within .tip { visibility: visible; opacity: 1; }
-.tip-end { left: auto; right: -8px; }
 
 .tabs { display: flex; gap: 24px; padding: 0 16px 10px; border-top: 1px solid var(--border); background: var(--surface); }
 .tab-button {

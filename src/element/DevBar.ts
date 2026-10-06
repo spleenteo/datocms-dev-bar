@@ -173,6 +173,13 @@ export class DevBar extends Base {
       this.applyRecordFilter();
     });
     this.root.querySelector(".advanced")!.addEventListener("click", () => this.setAdvanced(!this.advanced));
+    // Tooltips are placed when their "i" is reached, by pointer or by keyboard.
+    for (const type of ["mouseover", "focusin"] as const) {
+      this.root.addEventListener(type, (event) => {
+        const info = (event.target as Element | null)?.closest?.(".info");
+        if (info) placeTip(info as HTMLElement);
+      });
+    }
     // The buttons at the end of the General sections open the Queries and Records tabs.
     this.root.querySelectorAll<HTMLButtonElement>("[data-go]").forEach((button) =>
       button.addEventListener("click", () => {
@@ -439,6 +446,24 @@ function readData() {
   return parseDevBarData(script?.textContent);
 }
 
+/**
+ * Puts the tooltip of an "i" where it can be seen: above the icon when there is room, else below,
+ * kept inside the viewport. Fixed coordinates: the panel scrolls and clips, the tooltip must not.
+ */
+function placeTip(info: HTMLElement) {
+  const tip = info.querySelector<HTMLElement>(".tip");
+  const anchor = info.querySelector<HTMLElement>(".i") ?? info;
+  if (!tip) return;
+  const at = anchor.getBoundingClientRect();
+  const size = tip.getBoundingClientRect();
+  const margin = 8;
+  const above = at.top - size.height - margin;
+  const top = above >= margin ? above : Math.min(at.bottom + margin, window.innerHeight - size.height - margin);
+  const left = Math.max(margin, Math.min(at.right - size.width, window.innerWidth - size.width - margin));
+  tip.style.top = `${Math.round(top)}px`;
+  tip.style.left = `${Math.round(left)}px`;
+}
+
 /** The "i" at the end of a query line: what the figures mean. A click on it must not fold the row. */
 function weightInfo(tipId: number): HTMLElement {
   const button = el("button", "i", "i");
@@ -449,7 +474,7 @@ function weightInfo(tipId: number): HTMLElement {
     event.preventDefault();
     event.stopPropagation();
   });
-  const tip = el("span", "tip tip-end");
+  const tip = el("span", "tip");
   tip.id = `weight-tip-${tipId}`;
   tip.setAttribute("role", "tooltip");
   for (const [term, meaning] of WEIGHT_HELP) {
