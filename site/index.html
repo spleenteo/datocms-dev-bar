@@ -62,6 +62,8 @@
     @media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
     .zero { margin-top: 40px; max-width: 720px; color: var(--grey); }
 
+    .shot { width: 100%; height: auto; display: block; margin-top: 40px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 16px 48px rgb(0 0 0 / .14); }
+
     .panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 40px; align-items: start; }
     .panels figure { margin: 0; }
     .panels figcaption { font-size: 13px; font-weight: 700; color: var(--grey); letter-spacing: 0.04em; margin-bottom: 12px; }
@@ -110,7 +112,15 @@
     </div>
   </header>
 
-  <section id="what">
+  <section id="context">
+    <div class="wrap">
+      <h2>On top of the site you are building</h2>
+      <p class="lead">A small bar at the bottom left of the page, and the X-Ray panel above it when you open it. Here over a made-up shop.</p>
+      <img class="shot" src="img/in-context.png" alt="A fictional coffee shop site with the dev bar at the bottom left and the X-Ray panel open on the Records tab" width="2560" height="1728">
+    </div>
+  </section>
+
+  <section id="what" class="alt">
     <div class="wrap">
       <h2>Three switches and an X-Ray of the page</h2>
       <p class="lead">The bar holds what you click; the X-Ray panel above it holds what you read.</p>
@@ -134,7 +144,7 @@
     </div>
   </section>
 
-  <section id="how" class="alt">
+  <section id="how">
     <div class="wrap">
       <h2>It sits inside your dev server, not inside your code</h2>
       <div class="steps">
@@ -148,7 +158,7 @@ DATOCMS_DEVTOOLS_TOKEN=… (optional, for Records)</pre></div>
     </div>
   </section>
 
-  <section id="xray">
+  <section id="xray" class="alt">
     <div class="wrap">
       <h2>What DatoCMS said about this page</h2>
       <p class="lead">Four tabs, in the look of the DatoCMS interface. General sums it up; Records and Queries go into the detail; Help explains the keys.</p>
@@ -160,7 +170,7 @@ DATOCMS_DEVTOOLS_TOKEN=… (optional, for Records)</pre></div>
     </div>
   </section>
 
-  <section id="safe" class="alt">
+  <section id="safe">
     <div class="wrap">
       <h2>It stays on your machine, three times over</h2>
       <div class="cards">
@@ -183,7 +193,7 @@ DATOCMS_DEVTOOLS_TOKEN=… (optional, for Records)</pre></div>
     </div>
   </section>
 
-  <section id="install">
+  <section id="install" class="alt">
     <div class="wrap">
       <h2>Let your agent do it</h2>
       <p class="lead">Three edits, no code: a job for Claude Code, Cursor or Copilot. Paste this and hand over your tokens.</p>
