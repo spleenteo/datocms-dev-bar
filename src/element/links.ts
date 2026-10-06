@@ -1,7 +1,7 @@
-/** Link to the DatoCMS project, or to one of its environments. */
+/** Link to the DatoCMS project, or to one of its environments. Only a web address: it ends up in an `href`. */
 export function projectHref(projectUrl: string | null, environment: string | null): string | null {
   const base = projectUrl?.trim().replace(/\/+$/, "");
-  if (!base) return null;
+  if (!base || !/^https?:\/\//i.test(base)) return null;
   const env = environment?.trim();
   return env ? `${base}/environments/${encodeURIComponent(env)}` : base;
 }

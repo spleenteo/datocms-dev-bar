@@ -100,9 +100,7 @@ function withHelpers(state: DevPreviewState): DevPreview {
   };
 }
 
-export { parseQueryReports, readQueryReport, serializeQueryReports } from "./queries";
-export type { CacheStatus, Flag, CacheTagsStatus, QueryReport, ReadQueryReportOptions } from "./queries";
+export { readQueryReport, serializeDevBarData } from "./queries";
+export type { CacheStatus, CacheTagsStatus, DevBarData, HeaderSource, QueryReport, ReadQueryReportOptions } from "./queries";
 export { collectRecordIds, fetchProjectInfo } from "./project";
 export type { FetchProjectInfoOptions, ProjectInfo, RecordInfo, RecordStatus } from "./project";
-export { serializeDevBarData } from "./queries";
-export type { DevBarData } from "./queries";

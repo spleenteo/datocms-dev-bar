@@ -20,13 +20,10 @@ for (const config of configs) {
   await ctx.watch();
 }
 
+// Listens on this machine only: with a token in .env the playground shows the drafts of a real project.
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", "http://localhost");
-    if (url.pathname === "/dev-bar-data") {
-      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
-      return res.end(remoteData());
-    }
     if (url.pathname.startsWith("/dist/")) {
       const body = await readFile(new URL(`..${url.pathname}`, import.meta.url));
       const type = TYPES[url.pathname.slice(url.pathname.lastIndexOf("."))] ?? "application/octet-stream";
@@ -34,9 +31,13 @@ createServer(async (req, res) => {
       return res.end(body);
     }
     // Fresh import on every request, so helper changes show up without restarting.
-    const { readDevPreview } = await import(new URL(`../dist/server.js?v=${Date.now()}`, import.meta.url).href);
+    const { readDevPreview, serializeDevBarData } = await import(new URL(`../dist/server.js?v=${Date.now()}`, import.meta.url).href);
+    if (url.pathname === "/dev-bar-data") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      return res.end(remoteData(serializeDevBarData));
+    }
     const preview = readDevPreview({ cookie: req.headers.cookie, url: req.url }, { isDev: true });
-    const html = await renderPage(url.pathname, preview);
+    const html = await renderPage(url.pathname, preview, serializeDevBarData);
     if (html === null) {
       res.writeHead(404, { "Content-Type": "text/plain" });
       return res.end("Not found");
@@ -48,4 +49,4 @@ createServer(async (req, res) => {
     res.writeHead(500, { "Content-Type": "text/plain" });
     res.end(String(error));
   }
-}).listen(PORT, () => console.log(`playground: http://localhost:${PORT}`));
+}).listen(PORT, "127.0.0.1", () => console.log(`playground: http://localhost:${PORT}`));

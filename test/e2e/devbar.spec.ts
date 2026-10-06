@@ -171,6 +171,21 @@ test("records are grouped by model and can be filtered", async ({ page }) => {
   await expect(control(page, ".r-group:visible")).toHaveCount(3);
 });
 
+test("what is open in the panel stays open while the bar changes state", async ({ page }) => {
+  await page.goto("/");
+  await tab(page).click();
+  await control(page, ".advanced").click();
+  await control(page, "[data-tab=records]").click();
+  const menu = control(page, ".r-group").nth(1).locator("details");
+  await menu.locator("summary").click();
+  await expect(menu).toHaveAttribute("open", "");
+  await control(page, "[data-tab=queries]").click();
+  await control(page, "[data-tab=records]").click();
+  await page.evaluate(() => document.dispatchEvent(new CustomEvent("datocms:click-to-edit:toggle", { detail: true })));
+  await expect(control(page, ".outlines-label")).toHaveText("Outlines on");
+  await expect(menu).toHaveAttribute("open", "");
+});
+
 test("a record that Content Link ties to the page scrolls there on click", async ({ page }) => {
   await page.goto("/");
   await tab(page).click();

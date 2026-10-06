@@ -6,6 +6,10 @@ describe("projectHref", () => {
     expect(projectHref(null, null)).toBeNull();
     expect(projectHref("   ", "main")).toBeNull();
   });
+  it("returns null for anything that is not a web address", () => {
+    expect(projectHref("javascript:alert(1)", null)).toBeNull();
+    expect(projectHref("demo.admin.datocms.com", "main")).toBeNull();
+  });
   it("strips trailing slashes", () => {
     expect(projectHref("https://demo.admin.datocms.com//", null)).toBe("https://demo.admin.datocms.com");
   });

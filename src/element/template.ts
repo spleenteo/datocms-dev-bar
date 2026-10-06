@@ -43,7 +43,7 @@ const row = ({ key, label, tip }: (typeof ROWS)[number]) => `
         <dd><span data-row="${key}"></span>${key === "environment" ? '<span class="badge" data-primary="true"></span>' : ""}</dd>
       </div>`;
 
-const TABS = [
+export const TABS = [
   { key: "general", label: "General" },
   { key: "records", label: "Records" },
   { key: "queries", label: "Queries" },
@@ -122,7 +122,7 @@ export const TEMPLATE = `
         <li>The bar writes two cookies and reloads the page; the server reads them to query DatoCMS. <code>?datocms=published</code> or <code>?datocms-visual=off</code> do the same for one page.</li>
         <li><b>General</b>: the environment the page read, how its queries performed, and links to the project and the docs. Click a query to read it.</li>
         <li><b>Records</b>: what the page shows, by model. Green dot published, yellow unpublished changes, hollow draft. Needs a read-only CMA token on the server. With visual editing on, click a record to scroll to it.</li>
-        <li><b>Queries</b>: each query with its text and variables, ready to copy. Orange flags mark slow, heavy or long queries.</li>
+        <li><b>Queries</b>: each query with its text and variables, ready to copy. Orange flags mark slow, heavy, long or large queries.</li>
       </ul>
       <p class="help-note"><a class="readme" href="https://github.com/spleenteo/datocms-dev-bar#readme" target="_blank" rel="noopener">Full guide in the README <span aria-hidden="true">↗</span><span class="sr-only">(opens in a new window)</span></a></p>
     </div>

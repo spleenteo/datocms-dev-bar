@@ -42,7 +42,6 @@ export const STYLES = `
 .status { width: 8px; height: 8px; border-radius: 50%; background: #7AFFDF; }
 .wrap[data-mode="published"] .status { background: #8FA1B3; }
 
-.env-name { font-weight: 700; }
 .badge {
   margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
   color: #1D1D1B; background: #7AFFDF;
@@ -63,7 +62,7 @@ export const STYLES = `
 .advanced { color: #fff; background: rgb(255 255 255 / .1); }
 .advanced:hover { background: rgb(255 255 255 / .2); }
 .advanced[aria-expanded="true"] { background: #fff; color: #1D1D1B; }
-.tab:focus-visible, button:focus-visible, .project:focus-visible, .docs:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tab:focus-visible, button:focus-visible, .project:focus-visible, .docs:focus-visible, .readme:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .panel {
   pointer-events: auto; position: absolute; left: 12px; bottom: calc(100% + 8px); box-sizing: border-box;
@@ -73,7 +72,6 @@ export const STYLES = `
 }
 .wrap[data-position="right"] .panel { left: auto; right: 12px; }
 .wrap[data-open][data-advanced] .panel { visibility: visible; opacity: 1; }
-.panel h2 { margin: 0 0 4px; font: inherit; font-weight: 700; }
 .tabs { display: flex; gap: 2px; margin: 10px 0 0; padding: 2px; border-radius: 999px; background: rgb(255 255 255 / .08); }
 .tab-button {
   flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 8px; border: 0; border-radius: 999px;

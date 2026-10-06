@@ -10,15 +10,16 @@ A dev bar for DatoCMS sites, for local development only. One click (or `Alt+Shif
 |---|---|
 | Viewing: draft / published | which version of the content the page reads |
 | Visual editing: on / off | Content Link overlays (drafts only) |
+| Outlines | not a control: says whether the Content Link outlines are on, once the bar has seen them change (hold `Alt` to show or hide them) |
 | X-Ray | opens the panel |
 
 **The X-Ray panel** holds what you read, in four tabs at its bottom edge:
 
 | Tab | What it shows | Needs |
 |---|---|---|
-| General | environment (primary or not), response time, complexity, query length, CDN cache, cache tags, one line per query, links to the project and the docs | query reports from the server |
+| General | environment (primary or not), response time, response size, complexity, query length, CDN cache, cache tags, one line per query, links to the project and the docs | query reports from the server |
 | Records | the records and blocks the page shows, grouped by model, with status, title and last change; a filter; a click scrolls to the content | a read-only CMA token on the server |
-| Queries | each query with its text and variables, ready to copy; flags on slow, heavy or long ones | query reports from the server |
+| Queries | each query with its text and variables, ready to copy; flags on slow, heavy, long or large ones | query reports from the server |
 | Help | keyboard shortcuts and a short guide | nothing |
 
 Every figure has an "i" icon that explains it. Without anything from the server the bar still switches draft, published and visual editing; the panel says what is missing.
@@ -75,9 +76,11 @@ Load it in development only:
 ```html
 <datocms-dev-bar project-url="https://your-project.admin.datocms.com"></datocms-dev-bar>
 <script type="module">
-  if (location.hostname === "localhost") import("https://cdn.jsdelivr.net/npm/@spleenteo/datocms-dev-bar");
+  if (location.hostname === "localhost") import("https://cdn.jsdelivr.net/npm/@spleenteo/datocms-dev-bar@0.1.0");
 </script>
 ```
+
+From a CDN, name the version: the script runs on your machine, and an unpinned address runs whatever is published next. With a bundler, `import("@spleenteo/datocms-dev-bar")` (see the recipes). For a classic `<script src>` the package also ships `dist/datocms-dev-bar.iife.js`.
 
 | Attribute | Default | Meaning |
 |---|---|---|
@@ -88,6 +91,7 @@ Load it in development only:
 | `reload` | `true` | `false`: write the cookies, emit the event, do not reload |
 | `allow-hosts` | none | extra development hosts, space separated |
 | `shortcuts` | `on` | `off` disables `Alt+Shift+D` / `V` / `B` |
+| `data-url` | none | where the bar fetches the data of the X-Ray panel, instead of reading it from the page: see [Loading the data after the page](#loading-the-data-after-the-page) |
 
 CSS: `datocms-dev-bar { --dev-bar-accent: #FF593D; --dev-bar-bottom: 12px; }`
 
@@ -103,7 +107,19 @@ The bar runs in the browser and the queries run on your server, so the server ha
 <script type="application/json" data-datocms-dev-bar>{ "queries": [...], "project": {...} }</script>
 ```
 
-Build that JSON with `serializeDevBarData({ queries, project })`: it escapes `<`, so the data cannot close the tag. A plain array of query reports also works (`serializeQueryReports`).
+Build that JSON with `serializeDevBarData({ queries, project })`: it escapes `<`, so the data cannot close the tag. `project` is `null` without a CMA token.
+
+The bar reads the script once, when it loads, so the script must already be in the page: after the queries have run, and before a navigation that does not reload the page.
+
+### Loading the data after the page
+
+Some frameworks send the page while its queries still run (Next.js App Router), or change page without reloading it. There is nothing to write into the page yet, or nobody reads it again. Give the bar an address instead:
+
+```html
+<datocms-dev-bar data-url="/api/dev-bar?id=..."></datocms-dev-bar>
+```
+
+The bar fetches it when it loads and again every time the attribute changes (same origin, never from cache), and expects the same JSON, built with `serializeDevBarData`. The endpoint is yours: keep the reports of each request on the server under an ID, put the ID in the address, and answer 404 outside development.
 
 ### Queries
 
@@ -118,6 +134,7 @@ reports.push(
     operation: "HomeQuery", // optional: the name shown in the panel
     query: queryText, // optional: shown and copyable in the Queries tab
     variables, // optional: anything JSON can hold
+    result, // optional: the data that came back, to measure the response size
   }),
 );
 ```
@@ -130,12 +147,13 @@ What the panel reads from the headers:
 |---|---|---|
 | Environment | `x-environment` | the environment that answered |
 | Response time | `x-timings-total` | time at DatoCMS, without the network; on a cache hit it repeats the original run |
+| Response size | none: measured on `result` | the JSON, uncompressed. Without `result` the row says n/a: `Content-Length` counts the compressed bytes |
 | Complexity | `x-complexity`, `x-max-complexity` | cost of the query against the maximum |
 | Query length | `x-cacheable-on-cdn-query-length-limit` | above the limit the query is not cacheable on the CDN |
 | From cache | `cf-cache-status` | hit, miss (computed now, stored), bypass |
 | Cache tags | `x-cache-tags` | active, not requested (drafts never ask), or missing |
 
-The weight flags are rules of thumb, not DatoCMS limits: **slow** from 500 ms, **heavy** from 5% of the maximum complexity, **length** from 75% of the CDN limit.
+The weight flags are rules of thumb, not DatoCMS limits: **slow** from 500 ms, **heavy** from 5% of the maximum complexity, **length** from 75% of the CDN limit, **large** from 200 KB of JSON.
 
 ### Records (needs a read-only CMA token)
 
@@ -169,9 +187,11 @@ const project = await fetchProjectInfo({
 
 `collectRecordIds` works without the decoder too, but then it only finds the records whose `id` your queries select. With visual editing on, the decoder finds the records behind every text.
 
-`fetchProjectInfo` never throws: a failure comes back in `project.error` and shows in the panel. It looks up at most 100 IDs per page (`maxRecords`); IDs of uploads simply come back empty. Environments, models and title fields are kept for a minute; records are read on every load.
+`fetchProjectInfo` never throws: a failure comes back in `project.error` and shows in the panel. It looks up at most 100 IDs per page (`maxRecords`); IDs of uploads simply come back empty. Environments and models are kept for a minute, title fields for ten; records are read on every load.
 
-What the tab shows, per model: records and blocks, a dot for the status (green published, yellow unpublished changes, hollow draft), the title (the model's title field, or a field named `title`, `name`, `label`, `heading` or `question`), the last change, and a pencil that opens the record in DatoCMS. Blocks have no pencil: they live inside a record. The filter searches model names, API keys, titles and statuses (`unpublished` finds the records with changes to publish).
+Call it in development only, like everything in this section. It reads the latest version of each record, so what it returns includes the titles of drafts and links to the DatoCMS admin: none of it belongs in a production page.
+
+What the tab shows, per model: records and blocks, a dot for the status (green published, yellow unpublished changes, hollow draft), the title (the model's title field, or a field named `title`, `name`, `label`, `heading`, `question` or `internal_name`), the last change, and a pencil that opens the record in DatoCMS. Blocks have no pencil: they live inside a record. The filter searches model names, API keys, titles and statuses (`unpublished` finds the records with changes to publish).
 
 With the token, the Environment badge also becomes a fact: DatoCMS says whether the environment is the primary one.
 
@@ -194,8 +214,9 @@ With visual editing on, Content Link marks the elements each record fills. A cli
 | `Alt+Shift+D` | switch between draft and published |
 | `Alt+Shift+V` | turn visual editing on and off (drafts only) |
 | `Alt+Shift+B` | open and close the bar |
+| `Alt` (hold) | show the Content Link outlines, or hide them if the site keeps them on. This one belongs to `@datocms/content-link`; the bar only shows the state |
 
-Ignored while you type in a field. `shortcuts="off"` turns them off.
+The bar's shortcuts are ignored while you type in a field. `shortcuts="off"` turns them off.
 
 ## Recipes
 
@@ -228,7 +249,7 @@ const byRequest = new WeakMap<Request, { reports: QueryReport[]; ids: Set<string
 export function recordQuery(request: Request, response: Response, result: unknown, options: Parameters<typeof readQueryReport>[1]) {
   if (!import.meta.env.DEV) return;
   const data = byRequest.get(request) ?? { reports: [], ids: new Set<string>() };
-  data.reports.push(readQueryReport(response.headers, options));
+  data.reports.push(readQueryReport(response.headers, { ...options, result }));
   for (const id of collectRecordIds(result, decodeStega)) data.ids.add(id);
   byRequest.set(request, data);
 }
@@ -294,6 +315,8 @@ export function DevBar() {
 
 Layouts do not receive `searchParams`: there only the cookie counts.
 
+The App Router sends the page while its queries still run, so for the X-Ray panel use `data-url`: see [Loading the data after the page](#loading-the-data-after-the-page).
+
 TypeScript does not know the custom tag in JSX. Declare it once, for example in `app/dev-bar.d.ts`:
 
 ```ts
@@ -310,6 +333,7 @@ declare module "react" {
         reload?: "true" | "false";
         "allow-hosts"?: string;
         shortcuts?: "on" | "off";
+        "data-url"?: string;
       };
     }
   }

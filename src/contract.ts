@@ -3,6 +3,8 @@
  * their values, and how to resolve them. Sites that do not use the server
  * helper can implement this by hand.
  */
+import { safeDecode } from "./safeDecode";
+
 export const MODE_COOKIE = "datocms-mode";
 export const VISUAL_COOKIE = "datocms-visual";
 export const MODE_PARAM = "datocms";
@@ -53,12 +55,4 @@ export function parseCookies(header: string | null | undefined): Map<string, str
     cookies.set(name, safeDecode(part.slice(separator + 1).trim()));
   }
   return cookies;
-}
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
 }

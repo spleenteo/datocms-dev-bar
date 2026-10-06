@@ -2,6 +2,8 @@
  * What the dev bar knows about the queries a page ran: parsed from the response headers
  * of the Content Delivery API on the server, shown by the bar in the browser.
  */
+import type { ProjectInfo, RecordInfo } from "./project";
+
 export type CacheStatus = "hit" | "miss" | "bypass" | "unknown";
 /** `not-requested`: the query did not ask for cache tags (drafts never do). `missing`: asked, none came back. */
 export type CacheTagsStatus = "active" | "not-requested" | "missing";
@@ -31,7 +33,10 @@ export type ReadQueryReportOptions = {
   query?: string | null;
   /** The variables: anything JSON can hold. */
   variables?: unknown;
-  /** The query result (the data), to measure the response size. Without it, Content-Length is used when present. */
+  /**
+   * The query result (the data), to measure the response size. Without it the size is known only
+   * when the response came uncompressed with a Content-Length, which is rare.
+   */
   result?: unknown;
 };
 
@@ -78,6 +83,12 @@ function cacheStatusOf(value: string | null | undefined): CacheStatus {
   }
 }
 
+/** The size the response declares, when it is the size of the JSON: on a compressed one Content-Length counts the compressed bytes. */
+function declaredBytes(headers: HeaderSource): number | null {
+  const encoding = headers.get("content-encoding")?.trim().toLowerCase();
+  return !encoding || encoding === "identity" ? toNumber(headers.get("content-length")) : null;
+}
+
 /** Reads the headers of one Content Delivery API response. Never throws. */
 export function readQueryReport(headers: HeaderSource, options: ReadQueryReportOptions): QueryReport {
   const [length, limit] = (headers.get("x-cacheable-on-cdn-query-length-limit") ?? "").split("/");
@@ -93,23 +104,21 @@ export function readQueryReport(headers: HeaderSource, options: ReadQueryReportO
     queryLengthLimit: toNumber(limit),
     cache: cacheStatusOf(headers.get("cf-cache-status")),
     cacheTags: !options.cacheTagsRequested ? "not-requested" : tags ? "active" : "missing",
-    responseBytes: options.result !== undefined ? jsonBytes(options.result) : toNumber(headers.get("content-length")),
+    responseBytes: options.result !== undefined ? jsonBytes(options.result) : declaredBytes(headers),
     query: options.query?.trim() || null,
     variables: variablesAsJson(options.variables),
   };
 }
 
-import type { ProjectInfo, RecordInfo } from "./project";
-
 /** Everything the site hands to the bar: the queries of the page and, with a CMA token, project data. */
 export type DevBarData = { queries: QueryReport[]; project: ProjectInfo | null };
 
-/** Like `serializeQueryReports`, with project data as well. */
+/** JSON for a `<script type="application/json">` tag: `<` is escaped so the data cannot close the tag. */
 export function serializeDevBarData(data: DevBarData): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
-/** Reads what the site wrote: the full object, or the plain array of queries. Anything malformed is dropped. */
+/** Reads the JSON written by `serializeDevBarData`. Anything malformed is dropped. */
 export function parseDevBarData(json: string | null | undefined): DevBarData {
   let data: unknown;
   try {
@@ -117,27 +126,47 @@ export function parseDevBarData(json: string | null | undefined): DevBarData {
   } catch {
     return { queries: [], project: null };
   }
-  if (Array.isArray(data)) return { queries: parseQueryReports(json), project: null };
-  if (typeof data !== "object" || data === null) return { queries: [], project: null };
-  const { queries, project } = data as { queries?: unknown; project?: unknown };
-  return { queries: parseQueryReports(JSON.stringify(queries ?? [])), project: parseProject(project) };
+  if (!isObject(data)) return { queries: [], project: null };
+  return { queries: parseReports(data.queries), project: parseProject(data.project) };
 }
 
-function anchorFrom(value: unknown): RecordInfo["anchor"] {
-  if (typeof value !== "object" || value === null) return null;
-  const { recordId, fieldPath } = value as Record<string, unknown>;
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+const objects = (value: unknown) => (Array.isArray(value) ? value.filter(isObject) : []);
+const text = (value: unknown): string | null => (typeof value === "string" && value !== "" ? value : null);
+const count = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
+const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
+  allowed.includes(value as T) ? (value as T) : fallback;
+
+function parseReports(value: unknown): QueryReport[] {
+  return objects(value).map((item) => ({
+    operation: text(item.operation),
+    environment: text(item.environment),
+    timingsTotalMs: count(item.timingsTotalMs),
+    complexity: count(item.complexity),
+    maxComplexity: count(item.maxComplexity),
+    queryLength: count(item.queryLength),
+    queryLengthLimit: count(item.queryLengthLimit),
+    cache: oneOf(item.cache, ["hit", "miss", "bypass", "unknown"], "unknown"),
+    cacheTags: oneOf(item.cacheTags, ["active", "not-requested", "missing"], "not-requested"),
+    responseBytes: count(item.responseBytes),
+    query: text(item.query),
+    variables: text(item.variables),
+  }));
+}
+
+function parseAnchor(value: unknown): RecordInfo["anchor"] {
+  if (!isObject(value)) return null;
+  const { recordId, fieldPath } = value;
   return typeof recordId === "string" && typeof fieldPath === "string" ? { recordId, fieldPath } : null;
 }
 
 function parseProject(value: unknown): ProjectInfo | null {
-  if (typeof value !== "object" || value === null) return null;
-  const raw = value as Record<string, unknown>;
-  const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null) : []);
+  if (!isObject(value)) return null;
   return {
-    environments: list(raw.environments)
+    environments: objects(value.environments)
       .filter((env) => typeof env.name === "string")
       .map((env) => ({ name: env.name as string, primary: env.primary === true })),
-    records: list(raw.records)
+    records: objects(value.records)
       .filter((r) => typeof r.id === "string")
       .map(
         (r): RecordInfo => ({
@@ -148,54 +177,18 @@ function parseProject(value: unknown): ProjectInfo | null {
           block: r.block === true,
           status: oneOf(r.status, ["published", "updated", "draft", "unknown"], "unknown"),
           updatedAt: text(r.updatedAt),
+          // Only links to DatoCMS: the address ends up in an `href`.
           editUrl: typeof r.editUrl === "string" && /^https:\/\//.test(r.editUrl) ? r.editUrl : null,
-          anchor: anchorFrom(r.anchor),
+          anchor: parseAnchor(r.anchor),
         }),
       ),
-    moreRecords: count(raw.moreRecords) ?? 0,
-    blocks: count(raw.blocks) ?? 0,
-    blockCounts: list(raw.blockCounts)
-      .filter((b) => typeof b.model === "string" && typeof b.count === "number")
+    moreRecords: count(value.moreRecords) ?? 0,
+    blocks: count(value.blocks) ?? 0,
+    blockCounts: objects(value.blockCounts)
+      .filter((b) => typeof b.model === "string" && count(b.count) !== null)
       .map((b) => ({ model: b.model as string, modelApiKey: text(b.modelApiKey), count: b.count as number })),
-    error: text(raw.error),
+    error: text(value.error),
   };
-}
-
-/** JSON for a `<script type="application/json">` tag: `<` is escaped so the data cannot close the tag. */
-export function serializeQueryReports(reports: QueryReport[]): string {
-  return JSON.stringify(reports).replace(/</g, "\\u003c");
-}
-
-const text = (value: unknown): string | null => (typeof value === "string" && value !== "" ? value : null);
-const count = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
-const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
-  allowed.includes(value as T) ? (value as T) : fallback;
-
-/** Reads the JSON written by `serializeQueryReports`. Anything malformed is dropped. */
-export function parseQueryReports(json: string | null | undefined): QueryReport[] {
-  let data: unknown;
-  try {
-    data = JSON.parse(json ?? "");
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(data)) return [];
-  return data
-    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
-    .map((item) => ({
-      operation: text(item.operation),
-      environment: text(item.environment),
-      timingsTotalMs: count(item.timingsTotalMs),
-      complexity: count(item.complexity),
-      maxComplexity: count(item.maxComplexity),
-      queryLength: count(item.queryLength),
-      queryLengthLimit: count(item.queryLengthLimit),
-      cache: oneOf(item.cache, ["hit", "miss", "bypass", "unknown"], "unknown"),
-      cacheTags: oneOf(item.cacheTags, ["active", "not-requested", "missing"], "not-requested"),
-      responseBytes: count(item.responseBytes),
-      query: text(item.query),
-      variables: text(item.variables),
-    }));
 }
 
 export type SummaryRows = {
@@ -208,7 +201,8 @@ export type SummaryRows = {
   cacheTags: string;
 };
 
-const NOT_AVAILABLE = "n/a";
+/** What a row shows when the headers did not say. */
+export const NOT_AVAILABLE = "n/a";
 
 /** Bytes as KB (one decimal under 10 KB) or MB. */
 export function formatBytes(bytes: number): string {
@@ -232,7 +226,7 @@ function highest<T>(items: T[], score: (item: T) => number | null): T | undefine
   return best;
 }
 
-/** The six values of the X-ray panel, as text, for all the queries of one page. */
+/** The rows of the General tab, as text, for all the queries of one page. */
 export function summarizeReports(reports: QueryReport[]): SummaryRows {
   const many = reports.length > 1;
   const environments = [...new Set(reports.map((r) => r.environment).filter((e): e is string => e !== null))];
@@ -290,7 +284,7 @@ function describeCacheTags(reports: QueryReport[]): string {
   return "Not requested";
 }
 
-/** Where a query starts to deserve a look. Rules of thumb, not DatoCMS limits (except the length limit). */
+/** Where a query starts to deserve a look. Rules of thumb, not DatoCMS limits (the length limit comes from DatoCMS). */
 export const SLOW_MS = 500;
 export const HEAVY_SHARE = 0.05;
 export const NEAR_LIMIT_SHARE = 0.75;
@@ -340,7 +334,7 @@ export function assessReport(report: QueryReport): Flag[] {
   return flags;
 }
 
-/** The three measures of a query as short text, for its row: time, share of max complexity, share of the length limit. */
+/** The measures of a query as short text, for its line: time, size, share of the maximum complexity, share of the length limit. */
 export function describeWeight(report: QueryReport): { time: string; complexity: string; length: string; size: string } {
   const share = (value: number | null, max: number | null) => (value !== null && max ? percent(value / max) : NOT_AVAILABLE);
   return {

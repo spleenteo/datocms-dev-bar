@@ -3,8 +3,8 @@ const ENVIRONMENT = process.env.DATOCMS_ENVIRONMENT || "";
 
 const PAGES = { "/": "Home", "/other": "Another page", "/double": "Two bars", "/no-reload": "No reload", "/remote": "Data from a URL" };
 
-/** What /dev-bar-data answers: the same data the inline script carries. */
-export const remoteData = () => JSON.stringify({ queries: SAMPLE_REPORTS.slice(0, 1), project: SAMPLE_PROJECT });
+/** What /dev-bar-data answers: the same data the inline script carries. `serialize` is the helper's `serializeDevBarData`. */
+export const remoteData = (serialize) => serialize({ queries: SAMPLE_REPORTS.slice(0, 1), project: SAMPLE_PROJECT });
 
 // Stand-ins for what a site would hand to the X-Ray panel (the real thing is built from CDA response headers).
 const SAMPLE_REPORTS = [
@@ -35,8 +35,8 @@ const RECORDS = [
 const escapeHtml = (value) =>
   String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-/** Returns the page HTML, or null for an unknown path. */
-export async function renderPage(pathname, preview) {
+/** Returns the page HTML, or null for an unknown path. `serialize` is the helper's `serializeDevBarData`. */
+export async function renderPage(pathname, preview, serialize) {
   const title = PAGES[pathname];
   if (!title) return null;
   const visual = preview.visualEditing;
@@ -78,7 +78,7 @@ export async function renderPage(pathname, preview) {
   <h2>Change events</h2>
   <pre id="events"></pre>
   ${await realData(preview)}
-  ${pathname === "/remote" ? "" : `<script type="application/json" data-datocms-dev-bar>${JSON.stringify({ queries: SAMPLE_REPORTS, project: SAMPLE_PROJECT })}</script>`}
+  ${pathname === "/remote" ? "" : `<script type="application/json" data-datocms-dev-bar>${serialize({ queries: SAMPLE_REPORTS, project: SAMPLE_PROJECT })}</script>`}
   ${`<datocms-dev-bar ${attrs}></datocms-dev-bar>`.repeat(bars)}
   <script>
     document.addEventListener("datocms-dev-bar:change", (event) => {

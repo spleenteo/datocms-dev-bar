@@ -11,6 +11,14 @@ describe("collectRecordIds", () => {
       text === "stega" ? { href: "https://p.admin.datocms.com/environments/main/editor/item_types/T1/items/R9/edit#fieldPath=title" } : null;
     expect(collectRecordIds({ title: "stega", other: "plain" }, decode)).toEqual(["R9"]);
   });
+  it("never throws on a link it cannot read or a decoder that fails", () => {
+    const malformed = () => ({ href: "https://p.admin.datocms.com/editor/item_types/T1/items/%E0%A4%A/edit" });
+    expect(collectRecordIds({ title: "text" }, malformed)).toEqual(["%E0%A4%A"]);
+    const failing = () => {
+      throw new Error("boom");
+    };
+    expect(collectRecordIds({ id: "a", title: "text" }, failing)).toEqual(["a"]);
+  });
 });
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
@@ -89,6 +97,20 @@ describe("fetchProjectInfo", () => {
     expect(info.records).toEqual([]);
   });
 
+  it("reports a missing token instead of throwing", async () => {
+    const info = await fetchProjectInfo({ token: undefined as unknown as string, recordIds: ["R1"], fetch: fakeFetch });
+    expect(info.error).toBe("no Content Management API token was given");
+    expect(calls).toEqual([]);
+  });
+
+  it("keeps what it caches apart for tokens that end the same way", async () => {
+    const environmentsOf = (name: string) => (async () => json({ data: [{ id: name, meta: { primary: true } }] })) as unknown as typeof fetch;
+    const first = await fetchProjectInfo({ token: "project-one-SAME66", recordIds: [], fetch: environmentsOf("one") });
+    const second = await fetchProjectInfo({ token: "project-two-SAME66", recordIds: [], fetch: environmentsOf("two") });
+    expect(first.environments[0].name).toBe("one");
+    expect(second.environments[0].name).toBe("two");
+  });
+
   it("caps the records looked up", async () => {
     const info = await fetchProjectInfo({ token: "tok-c3", recordIds: ["R1", "x", "y"], maxRecords: 1, fetch: fakeFetch });
     expect(info.moreRecords).toBe(2);
@@ -96,10 +118,9 @@ describe("fetchProjectInfo", () => {
 });
 
 describe("parseDevBarData", () => {
-  it("reads the full object and the old plain array", () => {
+  it("reads the project data back", () => {
     const project = { environments: [{ name: "main", primary: true }], records: [], moreRecords: 0, blocks: 3, blockCounts: [{ model: "Button", modelApiKey: "button", count: 2 }], error: null };
     expect(parseDevBarData(serializeDevBarData({ queries: [], project })).project).toEqual(project);
-    expect(parseDevBarData("[]")).toEqual({ queries: [], project: null });
   });
   it("drops edit links that are not https", () => {
     const data = { queries: [], project: { records: [{ id: "R1", editUrl: "javascript:alert(1)" }] } };

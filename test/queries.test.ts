@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessReport, describeWeight, formatBytes, parseQueryReports, readQueryReport, serializeQueryReports, summarizeReports, type QueryReport } from "../src/queries";
+import { assessReport, describeWeight, formatBytes, parseDevBarData, readQueryReport, serializeDevBarData, summarizeReports, type QueryReport } from "../src/queries";
 
 const headers = (values: Record<string, string>) => ({ get: (name: string) => values[name.toLowerCase()] ?? null });
 
@@ -75,17 +75,22 @@ describe("readQueryReport", () => {
 });
 
 describe("serialize and parse", () => {
+  const queriesOf = (json: string | null) => parseDevBarData(json).queries;
   it("round-trips", () => {
-    expect(parseQueryReports(serializeQueryReports([report({ operation: "Home" })]))).toEqual([report({ operation: "Home" })]);
+    const queries = [report({ operation: "Home" })];
+    expect(parseDevBarData(serializeDevBarData({ queries, project: null }))).toEqual({ queries, project: null });
   });
   it("escapes < so the data cannot close the script tag", () => {
-    expect(serializeQueryReports([report({ operation: "</script><b>" })])).not.toContain("<");
+    const json = serializeDevBarData({ queries: [report({ operation: "</script><b>" })], project: null });
+    expect(json).not.toContain("<");
+    expect(queriesOf(json)[0].operation).toBe("</script><b>");
   });
   it("drops malformed input", () => {
-    expect(parseQueryReports("not json")).toEqual([]);
-    expect(parseQueryReports('{"a":1}')).toEqual([]);
-    expect(parseQueryReports(null)).toEqual([]);
-    expect(parseQueryReports('[1,"x",{"cache":"nope","complexity":"12"}]')).toEqual([
+    expect(queriesOf("not json")).toEqual([]);
+    expect(queriesOf('{"a":1}')).toEqual([]);
+    expect(queriesOf("[]")).toEqual([]);
+    expect(queriesOf(null)).toEqual([]);
+    expect(queriesOf('{"queries":[1,"x",{"cache":"nope","complexity":"12"}]}')).toEqual([
       report({ operation: null, environment: null, timingsTotalMs: null, complexity: null, maxComplexity: null, queryLength: null, queryLengthLimit: null, cache: "unknown", cacheTags: "not-requested", responseBytes: null, query: null, variables: null }),
     ]);
   });
@@ -172,6 +177,9 @@ describe("response size", () => {
     expect(readQueryReport(headers({}), { cacheTagsRequested: false, result: { a: "è" } }).responseBytes).toBe(10);
     expect(readQueryReport(headers({ "content-length": "2048" }), { cacheTagsRequested: false }).responseBytes).toBe(2048);
     expect(readQueryReport(headers({}), { cacheTagsRequested: false }).responseBytes).toBeNull();
+  });
+  it("does not take the Content-Length of a compressed response for the size of the JSON", () => {
+    expect(readQueryReport(headers({ "content-length": "512", "content-encoding": "br" }), { cacheTagsRequested: false }).responseBytes).toBeNull();
   });
   it("sums sizes and flags a large response", () => {
     const s = summarizeReports([report({ responseBytes: 3_000 }), report({ responseBytes: 250_000 })]);

@@ -3,6 +3,8 @@
  * with a read-only token: which environments exist and which records the page shows.
  * Plain fetch, no dependencies. The token never reaches the browser.
  */
+import { safeDecode } from "./safeDecode";
+
 export type RecordStatus = "published" | "updated" | "draft" | "unknown";
 
 export type RecordInfo = {
@@ -63,6 +65,7 @@ type JsonApi = { data?: unknown; errors?: { attributes?: { code?: string } }[] }
 type Cached<T> = { at: number; value: T };
 
 // Models and environments change rarely: kept for a minute per token and environment.
+// The whole token is the key: a shortened one could hand a project the data of another.
 const modelCache = new Map<string, Cached<Map<string, Model>>>();
 const environmentCache = new Map<string, Cached<{ name: string; primary: boolean }[]>>();
 
@@ -92,10 +95,15 @@ async function cached<T>(cache: Map<string, Cached<T>>, key: string, load: () =>
   return value;
 }
 
-/** Runs `task` on every item, at most `size` at a time. */
-async function inBatches<T>(items: T[], size: number, task: (item: T) => Promise<void>): Promise<void> {
-  for (let start = 0; start < items.length; start += size) await Promise.all(items.slice(start, start + size).map(task));
+/** Runs `task` on every item, at most `size` at a time. The results keep the order of the items. */
+async function inBatches<T, R>(items: T[], size: number, task: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  for (let start = 0; start < items.length; start += size) results.push(...(await Promise.all(items.slice(start, start + size).map(task))));
+  return results;
 }
+
+/** Requests to the CMA that run at the same time, to stay under its rate limit. */
+const CONCURRENCY = 4;
 
 type Resource = {
   id?: string;
@@ -138,14 +146,21 @@ function titleOf(attributes: Record<string, unknown> | undefined, titleKey: stri
 const statusOf = (value: unknown): RecordStatus =>
   value === "published" || value === "updated" || value === "draft" ? value : "unknown";
 
-/** Never throws: a failure comes back in `error`, with whatever could be read. */
+/**
+ * Never throws: a failure comes back in `error`, with whatever could be read.
+ * Call it in development only: it reads the latest version of each record, drafts included,
+ * and what it returns is meant for the page.
+ */
 export async function fetchProjectInfo(options: FetchProjectInfoOptions): Promise<ProjectInfo> {
-  const max = options.maxRecords ?? 100;
-  const ids = [...new Set(options.recordIds)].slice(0, max);
-  const info: ProjectInfo = { environments: [], records: [], moreRecords: Math.max(0, new Set(options.recordIds).size - max), blocks: 0, blockCounts: [], error: null };
-  const key = `${options.token.slice(-6)}:${options.environment ?? ""}`;
+  const info: ProjectInfo = { environments: [], records: [], moreRecords: 0, blocks: 0, blockCounts: [], error: null };
   try {
-    info.environments = await cached(environmentCache, options.token.slice(-6), async () =>
+    if (!options.token) throw new Error("no Content Management API token was given");
+    const max = options.maxRecords ?? 100;
+    const unique = [...new Set(options.recordIds ?? [])];
+    const ids = unique.slice(0, max);
+    info.moreRecords = Math.max(0, unique.length - max);
+    const key = `${options.token}:${options.environment ?? ""}`;
+    info.environments = await cached(environmentCache, options.token, async () =>
       ((await cma("/environments", { ...options, environment: null })) as Resource[]).map((env) => ({
         name: String(env.id),
         primary: env.meta?.primary === true,
@@ -164,23 +179,23 @@ export async function fetchProjectInfo(options: FetchProjectInfoOptions): Promis
       }
       return map;
     });
-    // With nested blocks the CMA returns at most 30 records per request: ask in batches, in parallel.
+    // With nested blocks the CMA returns at most 30 records per request: ask in batches, a few at a time.
     const batches: string[][] = [];
     for (let start = 0; start < ids.length; start += NESTED_PAGE) batches.push(ids.slice(start, start + NESTED_PAGE));
     const items = (
-      await Promise.all(
-        batches.map(
-          (batch) =>
-            cma(`/items?filter[ids]=${batch.map(encodeURIComponent).join(",")}&version=current&nested=true&page[limit]=${NESTED_PAGE}`, options) as Promise<Resource[]>,
-        ),
+      await inBatches(
+        batches,
+        CONCURRENCY,
+        (batch) =>
+          cma(`/items?filter[ids]=${batch.map(encodeURIComponent).join(",")}&version=current&nested=true&page[limit]=${NESTED_PAGE}`, options) as Promise<Resource[]>,
       )
     ).flat();
     // API keys of the title fields, only for the models on this page.
     const typeIds = new Set(items.map((item) => item.relationships?.item_type?.data?.id).filter((id): id is string => !!id));
     const titleKeys = new Map<string, string>();
-    // One call per model, four at a time to stay under the CMA rate limit. A title field that
-    // cannot be read leaves its records without a title, instead of failing the whole panel.
-    await inBatches([...typeIds], 4, async (typeId) => {
+    // One call per model. A title field that cannot be read leaves its records without a title,
+    // instead of failing the whole panel.
+    await inBatches([...typeIds], CONCURRENCY, async (typeId) => {
       const fieldId = models.get(typeId)?.titleFieldId;
       if (!fieldId) return;
       try {
@@ -282,15 +297,22 @@ const EDIT_LINK = /\/item_types\/([^/?#]+)\/items\/([^/?#]+)/;
  * IDs of the records in a query result: every object with a string `id`, plus the records behind
  * Content Link metadata when a `decode` function for it is given (e.g. `decodeStega` of
  * `@datocms/content-link`), which also finds records whose `id` the query did not select.
+ * Never throws: it runs next to the site's queries, and a text it cannot read is skipped.
  */
 export function collectRecordIds(value: unknown, decode?: (text: string) => { href: string } | null): string[] {
   const ids = new Set<string>();
   const walk = (node: unknown, depth: number) => {
     if (depth > 40 || node === null) return;
     if (typeof node === "string") {
-      const href = decode?.(node)?.href;
-      const match = href ? EDIT_LINK.exec(href) : null;
-      if (match) ids.add(decodeURIComponent(match[2]));
+      if (!decode) return;
+      let href: string | undefined;
+      try {
+        href = decode(node)?.href;
+      } catch {
+        return;
+      }
+      const match = typeof href === "string" ? EDIT_LINK.exec(href) : null;
+      if (match) ids.add(safeDecode(match[2]));
       return;
     }
     if (Array.isArray(node)) return node.forEach((child) => walk(child, depth + 1));
