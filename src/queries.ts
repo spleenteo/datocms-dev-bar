@@ -334,6 +334,24 @@ export function assessReport(report: QueryReport): Flag[] {
   return flags;
 }
 
+/** The calls of the page in one line, for the recap of the General tab: how many, how many distinct queries, their weight, how many flagged. */
+export function describeCalls(reports: QueryReport[]): string {
+  const calls = reports.length;
+  const distinct = new Set(reports.map((r) => r.query ?? r.operation ?? "")).size;
+  const times = reports.map((r) => r.timingsTotalMs).filter((t): t is number => t !== null);
+  const sizes = reports.map((r) => r.responseBytes).filter((b): b is number => b !== null);
+  const flagged = reports.filter((r) => assessReport(r).length > 0).length;
+  return [
+    `${calls} ${calls === 1 ? "call" : "calls"}`,
+    `${distinct} distinct ${distinct === 1 ? "query" : "queries"}`,
+    times.length ? `${number(times.reduce((a, b) => a + b, 0))} ms` : null,
+    sizes.length ? formatBytes(sizes.reduce((a, b) => a + b, 0)) : null,
+    flagged ? `${flagged} flagged` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 /** The measures of a query as short text, for its line: time, size, share of the maximum complexity, share of the length limit. */
 export function describeWeight(report: QueryReport): { time: string; complexity: string; length: string; size: string } {
   const share = (value: number | null, max: number | null) => (value !== null && max ? percent(value / max) : NOT_AVAILABLE);

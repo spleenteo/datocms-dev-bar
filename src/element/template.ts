@@ -81,7 +81,7 @@ export const TEMPLATE = `
     <dl class="rows">${ROWS.map(row).join("")}
     </dl>
     <p class="empty" hidden>No queries reported on this page. The site has to hand them to the bar: see the README.</p>
-    <ul class="query-lines"></ul>
+    <button type="button" class="recap" title="Show the queries" hidden><span class="recap-text"></span><span aria-hidden="true">→</span></button>
     <dl class="rows links-rows">
       <div class="row">
         <dt>Links</dt>
@@ -120,7 +120,7 @@ export const TEMPLATE = `
       <h3>How it works</h3>
       <ul class="help-list">
         <li>The bar writes two cookies and reloads the page; the server reads them to query DatoCMS. <code>?datocms=published</code> or <code>?datocms-visual=off</code> do the same for one page.</li>
-        <li><b>General</b>: the environment the page read, how its queries performed, and links to the project and the docs. Click a query to read it.</li>
+        <li><b>General</b>: the environment the page read, how its queries performed, and links to the project and the docs. The line under them sums up the calls: click it to read the queries.</li>
         <li><b>Records</b>: what the page shows, by model. Green dot published, yellow unpublished changes, hollow draft. Needs a read-only CMA token on the server. With visual editing on, click a record to scroll to it.</li>
         <li><b>Queries</b>: each query with its text and variables, ready to copy. Orange flags mark slow, heavy, long or large queries.</li>
       </ul>

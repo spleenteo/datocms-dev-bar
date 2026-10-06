@@ -112,16 +112,11 @@ test("General shows the environment, how the queries performed, and a line per q
   await expect(general.locator("[data-row=size]")).toHaveText("257 KB in total, largest 254 KB");
   await general.locator(".i").first().hover();
   await expect(control(page, "#tip-environment")).toBeVisible();
-  const lines = general.locator(".query-lines li");
-  await expect(lines).toHaveCount(2);
-  await expect(lines.nth(1).locator(".flag")).toHaveText(["slow", "heavy 7%", "large 254 KB"]);
-  await lines.nth(1).locator(".i").hover();
-  await expect(lines.nth(1).locator(".tip")).toContainText("complexity");
-  await lines.nth(1).locator(".i").click();
-  await expect(control(page, "[data-tab=general]")).toHaveAttribute("aria-selected", "true");
-  await lines.nth(1).locator(".q-name").click();
+  const recap = general.locator(".recap");
+  await expect(recap).toHaveText("2 calls · 2 distinct queries · 647 ms · 257 KB · 1 flagged→");
+  await recap.click();
   await expect(control(page, "[data-tab=queries]")).toHaveAttribute("aria-selected", "true");
-  await expect(control(page, ".queries > li").nth(1).locator("details")).toHaveAttribute("open", "");
+  await expect(control(page, ".queries > li").nth(1).locator(".flag")).toHaveText(["slow", "heavy 7%", "large 254 KB"]);
 });
 
 test("Queries shows each query with its text and variables", async ({ page }) => {
@@ -222,7 +217,7 @@ test("with data-url the bar loads its data from the site after the page", async 
   await tab(page).click();
   await control(page, ".advanced").click();
   await expect(control(page, "[data-row=environment]")).toHaveText("main");
-  await expect(control(page, ".query-lines li")).toHaveCount(1);
+  await expect(control(page, ".recap")).toContainText("1 call · 1 distinct query");
   await expect(control(page, "[data-tab=records] .tab-count")).toHaveText("4");
 });
 

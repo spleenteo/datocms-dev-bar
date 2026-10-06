@@ -106,10 +106,11 @@ kbd { display: inline-block; min-width: 14px; margin-right: 3px; padding: 1px 5p
 .queries summary::before { content: "▸"; width: 10px; color: rgb(255 255 255 / .5); transition: transform 150ms; }
 .queries details[open] > summary::before { transform: rotate(90deg); }
 .queries summary:hover .q-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--accent); }
-.query-lines { margin: 0; padding: 4px 0; list-style: none; border-top: 1px solid rgb(255 255 255 / .1); font-size: 12px; }
-.q-jump { cursor: pointer; border-radius: 6px; }
-.q-jump:hover .q-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--accent); }
-.q-jump:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.recap {
+  display: flex; justify-content: space-between; gap: 12px; width: 100%; margin: 0; padding: 8px 0; border: 0; border-top: 1px solid rgb(255 255 255 / .1);
+  background: transparent; color: #fff; font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+}
+.recap:hover .recap-text { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--accent); }
 .links-rows { border-top: 1px solid rgb(255 255 255 / .1); }
 .pane[data-pane="queries"] { max-height: min(60vh, 520px); overflow: auto; }
 .pane[data-pane="queries"] .tip { top: calc(100% + 8px); bottom: auto; }

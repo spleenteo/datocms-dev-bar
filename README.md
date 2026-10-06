@@ -19,7 +19,7 @@ It loads into your development server and needs no change to your code: it watch
 
 | Tab | What it shows | Needs |
 |---|---|---|
-| General | environment (primary or not), response time, response size, complexity, query length, CDN cache, cache tags, one line per query, links to the project and the docs | nothing |
+| General | environment (primary or not), response time, response size, complexity, query length, CDN cache, cache tags, a recap of the calls that opens the Queries tab, links to the project and the docs | nothing |
 | Records | the records and blocks the page shows, grouped by model, with status, title and last change; a filter; a click scrolls to the content | a read-only CMA token |
 | Queries | each query with its text and variables, ready to copy; flags on slow, heavy, long or large ones | nothing |
 | Help | keyboard shortcuts and a short guide | nothing |

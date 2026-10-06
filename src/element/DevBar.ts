@@ -12,6 +12,7 @@ import type { ProjectInfo } from "../project";
 import {
   NOT_AVAILABLE,
   assessReport,
+  describeCalls,
   describeWeight,
   parseDevBarData,
   summarizeReports,
@@ -170,6 +171,11 @@ export class DevBar extends Base {
       this.applyRecordFilter();
     });
     this.root.querySelector(".advanced")!.addEventListener("click", () => this.setAdvanced(!this.advanced));
+    // The recap of the calls in General opens the Queries tab, and puts the focus on the first query.
+    this.root.querySelector(".recap")!.addEventListener("click", () => {
+      this.setTab("queries");
+      this.root!.querySelector<HTMLElement>(".queries summary")?.focus({ preventScroll: true });
+    });
     this.root.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((button) => {
       button.addEventListener("click", () => this.setTab(button.dataset.tab!));
       // Arrow keys move between tabs, as in any tab list.
@@ -216,12 +222,12 @@ export class DevBar extends Base {
       badge.textContent = value ? String(value) : "";
       badge.hidden = !value;
     });
-    const lines = root.querySelector<HTMLElement>(".query-lines")!;
-    lines.hidden = none;
-    lines.replaceChildren(...this.reports.map((report, index) => this.queryLineItem(report, index)));
+    const recap = root.querySelector<HTMLElement>(".recap")!;
+    recap.hidden = none;
+    recap.querySelector(".recap-text")!.textContent = describeCalls(this.reports);
     const list = root.querySelector<HTMLElement>(".queries")!;
     list.hidden = none;
-    list.replaceChildren(...this.reports.map((report, index) => this.queryItem(report, index + this.reports.length)));
+    list.replaceChildren(...this.reports.map((report, index) => this.queryItem(report, index)));
     this.renderRecords();
     this.update();
   }
@@ -296,34 +302,6 @@ export class DevBar extends Base {
     this.advanced = advanced;
     remember(ADVANCED_KEY, advanced ? "1" : "0");
     this.update();
-  }
-
-  /** In General: the line alone. A click opens the query in the Queries tab. */
-  private queryLineItem(report: QueryReport, index: number): HTMLElement {
-    const line = el("div", "q-line q-jump");
-    line.append(...queryLineParts(report, assessReport(report), index));
-    line.tabIndex = 0;
-    line.setAttribute("role", "button");
-    line.title = "Show the query";
-    const open = () => {
-      this.setTab("queries");
-      const details = this.root!.querySelectorAll<HTMLDetailsElement>(".queries > li > details")[index];
-      if (!details) return;
-      details.open = true;
-      details.querySelector("summary")?.focus({ preventScroll: true });
-      details.scrollIntoView({ block: "start", behavior: "smooth" });
-    };
-    line.addEventListener("click", (event) => {
-      if (!(event.target as HTMLElement).closest(".info")) open();
-    });
-    line.addEventListener("keydown", (event) => {
-      if (event.target !== line || (event.key !== "Enter" && event.key !== " ")) return;
-      event.preventDefault();
-      open();
-    });
-    const item = el("li");
-    item.append(line);
-    return item;
   }
 
   /**
