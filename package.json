@@ -1,7 +1,7 @@
 {
   "name": "@spleenteo/datocms-dev-bar",
   "version": "0.1.0",
-  "description": "A local-only dev bar for DatoCMS sites: switch draft/published content and visual editing in one click, in any framework.",
+  "description": "A local-only dev bar for DatoCMS sites: draft/published, visual editing and an X-Ray of the page's queries, loaded into any Node dev server without touching your code.",
   "type": "module",
   "license": "MIT",
   "author": "Matteo Papadopoulos",

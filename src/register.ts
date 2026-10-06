@@ -1,6 +1,6 @@
 /**
- * EXPERIMENTAL. The bar without a line of application code: loaded into the development server
- * with `NODE_OPTIONS=--import=@spleenteo/datocms-dev-bar/register`, it
+ * The bar without a line of application code: loaded into the development server with
+ * `NODE_OPTIONS=--import=@spleenteo/datocms-dev-bar/register`, it
  *
  * - watches the server's `fetch` calls to the Content Delivery API, applies the draft / visual
  *   editing state of the bar's cookies to them, and keeps a report of each one;
