@@ -7,6 +7,8 @@ export const configs = [
   { ...shared, entryPoints: ["src/index.ts"], outfile: "dist/index.js", format: "esm", platform: "browser" },
   { ...shared, entryPoints: ["src/index.ts"], outfile: "dist/datocms-dev-bar.iife.js", format: "iife", platform: "browser" },
   { ...shared, entryPoints: ["src/server.ts"], outfile: "dist/server.js", format: "esm", platform: "neutral" },
+  // Experimental: the preload for the development server (see src/register.ts). Node only.
+  { ...shared, entryPoints: ["src/register.ts"], outfile: "dist/register.js", format: "esm", platform: "node", target: "node20" },
 ];
 
 // Builds only when run directly (`node build.mjs`), not when the playground imports `configs`.

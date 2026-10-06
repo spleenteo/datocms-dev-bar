@@ -31,7 +31,8 @@
     "./server": {
       "types": "./dist/types/server.d.ts",
       "default": "./dist/server.js"
-    }
+    },
+    "./register": "./dist/register.js"
   },
   "jsdelivr": "dist/index.js",
   "unpkg": "dist/index.js",
@@ -52,7 +53,7 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "size": "node scripts/size.mjs",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test && npm run size"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
