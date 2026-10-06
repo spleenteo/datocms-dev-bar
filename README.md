@@ -50,6 +50,14 @@ Then the environment, in your local env file and never in production:
 
 Start the server, open the site: the bar sits bottom left, 200 px up from the edge so the framework's own dev indicator keeps its corner. `DATOCMS_DEV_BAR_POSITION=bottom-right` moves it, `DATOCMS_DEV_BAR_BOTTOM=12px` (any CSS length) lowers or raises it.
 
+### Let an agent do it
+
+The three steps above are what an AI coding agent (Claude Code, Cursor, Copilot…) does well. A prompt that gets it right:
+
+> Install `@spleenteo/datocms-dev-bar` as a dev dependency. In `package.json`, prefix the `dev` script with `NODE_OPTIONS=--import=@spleenteo/datocms-dev-bar/register ` (on Windows use `cross-env`). In the local env file (`.env.local` or `.env`, never a production one) add `DATOCMS_DEV_BAR_CDA_TOKEN` with a Content Delivery API token that can read drafts, `DATOCMS_BASE_EDITING_URL` with the project's admin URL (`https://<project>.admin.datocms.com`) and, if I give you one, `DATOCMS_DEVTOOLS_TOKEN` with a read-only Content Management API token. Do not add any import of the package to the application code. Then restart the dev server and open the site on localhost: a bar with "Viewing draft / published" sits bottom left.
+
+If the project is not on Node (an edge runtime, Cloudflare `workerd`), point the agent at the [manual integration](#manual-integration) instead.
+
 ## How it works
 
 The bar never talks to DatoCMS. It writes two cookies and reloads the page. The preload reads them on each request your server serves, and applies them to the calls your server makes to the Content Delivery API:
@@ -71,7 +79,13 @@ What the preload does, in order:
 
 Every call to the Content Delivery API goes out with `cache: "no-store"` while the preload is loaded: the switches must show at once, and a cached answer would hide them. So in development the panel counts the queries your code really makes, and your framework's data cache does not apply to them.
 
-The bar shows only on `localhost`, `127.0.0.1`, `[::1]` and hosts ending in `.local`, `.localhost` or `.test`. The preload loads only where you put it, the `dev` script: nothing of the package is imported by your code, so nothing of it is in your build.
+### Never in production
+
+Three things keep it on your machine:
+
+1. The preload loads only where you put it, the `dev` script: nothing of the package is imported by your code, so nothing of it is in your build. If the flag ever reaches a server started with `NODE_ENV=production`, the preload says so and does nothing.
+2. The server only acts on requests whose `Host` is local: `localhost`, `127.0.0.1`, `[::1]`, or a name ending in `.local`, `.localhost` or `.test`. Any other host gets the page untouched and nothing from `/__datocms-dev-bar/`. To use the bar on a machine reached by another name, list it in `DATOCMS_DEV_BAR_HOSTS` (space separated).
+3. The bar itself shows only on those same hosts, so even a page that carries it stays clean elsewhere.
 
 On Next.js the bar also drives the framework's draft mode: in draft the preload hands the request the `__prerender_bypass` cookie with the id of the dev server, so `draftMode()` says enabled and whatever your site does in draft (its `<ContentLink>`, its draft token) follows the switch; in published the cookie is removed.
 

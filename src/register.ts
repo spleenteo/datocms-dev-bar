@@ -19,6 +19,7 @@ import http from "node:http";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { isAllowedHost } from "./element/hosts";
 import { collectRecordIds, fetchProjectInfo } from "./project";
 import { readQueryReport, serializeDevBarData, type QueryReport } from "./queries";
 import { readDevPreview } from "./server";
@@ -58,14 +59,6 @@ const wrapper: Fetch = function fetch(input, init) {
   if (nesting.getStore()) return base(input, init);
   return nesting.run(true, () => watch(input, init));
 };
-Object.defineProperty(globalThis, "fetch", {
-  configurable: true,
-  enumerable: true,
-  get: () => wrapper,
-  set: (next: Fetch) => {
-    if (next !== wrapper) inner = next;
-  },
-});
 
 function hostOf(input: RequestInfo | URL): string | null {
   try {
@@ -145,9 +138,11 @@ function stegaDecoder() {
 // ---- the HTTP requests ----------------------------------------------------------------------
 
 const emit = http.Server.prototype.emit;
-http.Server.prototype.emit = function (this: http.Server, event: string | symbol, ...args: unknown[]): boolean {
+const patchedEmit = function (this: http.Server, event: string | symbol, ...args: unknown[]): boolean {
   if (event !== "request") return emit.call(this, event, ...args);
   const [req, res] = args as [http.IncomingMessage, http.ServerResponse];
+  // Only for a browser on this machine: another host gets the page as it is, and nothing from the bar.
+  if (!isLocalRequest(req)) return emit.call(this, event, req, res);
   if (req.url?.startsWith(`${PATH}/`)) {
     void serve(req, res);
     return true;
@@ -156,6 +151,12 @@ http.Server.prototype.emit = function (this: http.Server, event: string | symbol
   injectBar(res, context);
   return requests.run(context, () => emit.call(this, event, req, res));
 } as typeof http.Server.prototype.emit;
+
+/** The same hosts the bar shows on, plus DATOCMS_DEV_BAR_HOSTS (space separated) for a machine reached by another name. */
+function isLocalRequest(req: http.IncomingMessage): boolean {
+  const host = (req.headers.host ?? "").replace(/:\d+$/, "");
+  return isAllowedHost(host, (process.env.DATOCMS_DEV_BAR_HOSTS ?? "").split(/\s+/));
+}
 
 function begin(req: http.IncomingMessage, res: http.ServerResponse): Served {
   const now = Date.now();
@@ -384,4 +385,18 @@ async function serve(req: http.IncomingMessage, res: http.ServerResponse) {
   }
 }
 
-console.info(`${LOG} watching the Content Delivery API calls of this server; the bar is appended to every HTML page.`);
+// Development only: a production server that happens to carry the --import flag gets nothing.
+if (process.env.NODE_ENV === "production") {
+  console.info(`${LOG} not loaded: NODE_ENV is production.`);
+} else {
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    enumerable: true,
+    get: () => wrapper,
+    set: (next: Fetch) => {
+      if (next !== wrapper) inner = next;
+    },
+  });
+  http.Server.prototype.emit = patchedEmit;
+  console.info(`${LOG} watching the Content Delivery API calls of this server; the bar is appended to every HTML page.`);
+}

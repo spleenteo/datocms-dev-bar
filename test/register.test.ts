@@ -136,6 +136,25 @@ describe("register", () => {
     delete process.env.DATOCMS_DEV_BAR_BOTTOM;
   });
 
+  it("does nothing for a request that does not come from this machine", async () => {
+    // fetch does not let a test set the Host header: plain http does.
+    const asHost = (path: string, host: string) =>
+      new Promise<{ status: number; body: string }>((resolve, reject) => {
+        http.get(`${origin}${path}`, { headers: { host } }, (res) => {
+          let body = "";
+          res.on("data", (chunk) => (body += chunk));
+          res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
+        }).on("error", reject);
+      });
+    expect((await asHost("/page", "example.com")).body).not.toContain("datocms-dev-bar");
+    // The bar's paths are not answered either: the request goes to the site as it is.
+    expect((await asHost("/__datocms-dev-bar/data", "example.com")).body).not.toContain('"queries"');
+    process.env.DATOCMS_DEV_BAR_HOSTS = "example.com";
+    expect((await asHost("/page", "example.com:3000")).body).toContain("datocms-dev-bar");
+    delete process.env.DATOCMS_DEV_BAR_HOSTS;
+    expect((await asHost("/page", "localhost:3000")).body).toContain("datocms-dev-bar");
+  });
+
   it("serves the bar's script", async () => {
     const script = await get("/__datocms-dev-bar/index.js");
     expect(script.status).toBe(200);
